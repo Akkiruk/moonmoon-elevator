@@ -4,8 +4,8 @@
 --   panel                      run it (startup.lua does this at boot)
 --   local panel = require "panel"   in a test: returns the module without running it
 --
--- Sends: call {floor}, door {cmd="open"|"close"}, alarm_button, keycard (rising edge of the reader's redstone input),
--- hello {role="panel"}. Listens for the hub's panel {lit, locked, keycard_window, mode}.
+-- Sends: call {floor}, door {cmd="open"|"close"}, alarm_button, firefighter {on}, keycard (rising edge of the reader's redstone input),
+-- hello {role="panel"}. Listens for the hub's panel {lit, locked, keycard_window, mode, firefighter, fireKeyAllowed}.
 -- Without a panel message for `silence` seconds it shows Out of Order and sends nothing.
 --
 -- Settings: mmlift.car (or /car.txt), mmlift.hub (optional hub id), mmlift.keycardSide (default "back"),
@@ -121,7 +121,19 @@ function M.layout(w, h)
                         x1 = fx, x2 = fx + fw - 1, y1 = fy1, y2 = fy1 + 2 }
     fx = fx + fw + gap
   end
+  if M.fireVisible() then
+    -- the free slot next to the top floor button
+    local top
+    for _, b in ipairs(list) do if b.kind == "floor" and (not top or b.y1 < top.y1) then top = b end end
+    list[#list + 1] = { id = "firefighter", kind = "fire", x1 = top.x1 + bw + 1, x2 = top.x1 + 2 * bw, y1 = top.y1,
+                        y2 = top.y2 }
+  end
   return list
+end
+
+-- the key switch shows while the hub offers it (fire service at G, card just swiped) or while it is on
+function M.fireVisible()
+  return not S.silent and (S.firefighter or S.fireKey) and true or false
 end
 
 -- What a floor button looks like: "lit", "dead" or "idle"; keyed floors also show "keyed" (locked) or "open".
@@ -167,6 +179,18 @@ function M.render(w, h)
         center(c, bt.y2, "OPEN", colors.lime, bot, bt.x1, bt.x2)
         put(c, bt.x1, bt.y1 + 1, "\7", colors.green, mid)
       end
+    elseif bt.kind == "fire" then
+      -- a key switch: red when off, amber when the firefighter service is on
+      local on = S.firefighter
+      local top, mid, bot, tx = colors.red, colors.red, colors.brown, colors.white
+      if on then top, mid, bot, tx = colors.yellow, colors.orange, colors.brown, colors.black end
+      if flashing then top, mid, bot, tx = colors.white, colors.yellow, colors.orange, colors.black end
+      fill(c, bt.x1, bt.y1, bt.x2, bt.y1, top)
+      fill(c, bt.x1, bt.y1 + 1, bt.x2, bt.y1 + 1, mid)
+      fill(c, bt.x1, bt.y2, bt.x2, bt.y2, bot)
+      center(c, bt.y1, "FIRE", tx, top, bt.x1, bt.x2)
+      center(c, bt.y1 + 1, "(o)=\16", tx, mid, bt.x1, bt.x2)  -- key head and blade
+      center(c, bt.y2, on and "ON" or "KEY", tx, bot, bt.x1, bt.x2)
     else
       local bg, fgc = colors.gray, colors.white
       if bt.kind == "alarm" then bg = colors.red end
@@ -215,6 +239,8 @@ function M.handle(msg)
   S.locked = type(msg.locked) == "table" and msg.locked or {}
   S.window = msg.keycard_window and true or false
   S.mode = msg.mode or "normal"
+  S.firefighter = msg.firefighter == true
+  S.fireKey = msg.fireKeyAllowed == true
   S.lastPanel = os.clock()
   S.silent = false
   redraw()
@@ -229,6 +255,7 @@ function M.touch(x, y)
       local car = M.config.car
       local msg
       if bt.kind == "floor" then msg = { type = "call", car = car, floor = bt.id }
+      elseif bt.kind == "fire" then msg = { type = "firefighter", car = car, on = not S.firefighter }
       elseif bt.kind == "door" then msg = { type = "door", car = car, cmd = bt.id }
       else msg = { type = "alarm_button", car = car } end
       M.send(msg)
