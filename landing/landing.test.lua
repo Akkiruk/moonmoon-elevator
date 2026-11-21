@@ -4,9 +4,10 @@
 local landing = require "landing"
 
 local sent
-local function setup(floor, silence)
+local function setup(floor, silence, car)
   sent = {}
   landing.config.floor = floor or "G"
+  landing.config.car = car
   landing.config.silence = silence or 30
   landing.send = function(m) sent[#sent + 1] = m end
 end
@@ -81,6 +82,16 @@ ccunit.test("indicator: car floor, arrow and car letter", function()
     ccunit.contains(rows(c)[10], "DOORS OPEN")
     feed({ carFloor = "6", dir = nil })
     ccunit.eq(bgCount(landing.indFrame, 4, 27, 36, colors.lime), 0)
+  end)
+end, { timeout = 10 })
+
+ccunit.test("a landing set to a car ignores the other car", function()
+  setup("G", nil, "B")
+  with(function()
+    feed({ carFloor = "3", car = "B" })
+    feed({ carFloor = "L1", car = "A" })
+    ccunit.eq(landing.S.msg.carFloor, "3")
+    ccunit.contains(rows(landing.indFrame)[1], "CAR B")
   end)
 end, { timeout = 10 })
 

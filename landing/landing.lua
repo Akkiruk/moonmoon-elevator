@@ -4,7 +4,8 @@
 --   landing                      run it (startup.lua does this at boot)
 --   local landing = require "landing"   in a test: returns the module without running it
 --
--- Settings: mmlift.floor (or /floor.txt) is this landing's floor name. The monitors are told apart by size, the
+-- Settings: mmlift.floor (or /floor.txt) is this landing's floor name, mmlift.car (or /car.txt) the car whose
+-- shaft it's on; with no car it shows whichever car the hub last talked about. The monitors are told apart by size, the
 -- wide one is the indicator and the tall one the call station; mmlift.indicator / mmlift.callpanel force a name.
 -- mmlift.lamp is the side of the lamp block (default: every side with nothing attached).
 -- mmlift.hub is an optional hub id, mmlift.silence the seconds without a landing message before Out of Order (5).
@@ -16,7 +17,7 @@ local PROTO = "mmlift"
 local M = {}
 
 M.config = {
-  floor = nil, hub = nil, silence = 5, flash = 0.25,
+  floor = nil, car = nil, hub = nil, silence = 5, flash = 0.25,
   floors = { "L1", "L2", "P3", "P2", "P1", "G", "2", "3", "4", "5", "6" },
   indicator = nil, callpanel = nil,
 }
@@ -47,6 +48,10 @@ local function loadConfig()
     c.floor = l and l:match("%S+")
   end
   c.floor = tostring(c.floor or "G")
+  c.car = c.car or settings.get("mmlift.car")
+  if not c.car and fs.exists("/car.txt") then
+    local f = fs.open("/car.txt", "r"); c.car = (f.readLine() or ""):match("%S+"); f.close()
+  end
   c.hub = c.hub or settings.get("mmlift.hub")
   c.silence = settings.get("mmlift.silence") or c.silence
   c.indicator = c.indicator or settings.get("mmlift.indicator")
@@ -326,6 +331,7 @@ end
 
 function M.handle(msg)
   if type(msg) ~= "table" or msg.type ~= "landing" or tostring(msg.floor) ~= M.config.floor then return end
+  if M.config.car and msg.car ~= M.config.car then return end
   local had = S.msg and S.msg.lantern
   S.msg = msg
   S.last = os.clock()
