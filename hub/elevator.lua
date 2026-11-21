@@ -228,8 +228,11 @@ function E:carCall(c, i)
   if c.atFloor == i and not c.moving then return end
   c.calls[i] = true
   local t = self.cfg.timing
-  if t.carCallDwell and c.door.state == "open" and c.door.dwellUntil > self.now + t.carCallDwell then
-    c.door.dwellUntil = self.now + t.carCallDwell
+  -- a floor button closes the doors soon, but a fresh stop still gets its stopDwell
+  local d = c.door
+  if t.carCallDwell and d.state == "open" then
+    local soonest = math.max(self.now + t.carCallDwell, (d.openedAt or 0) + (t.stopDwell or 0))
+    if d.dwellUntil > soonest then d.dwellUntil = soonest end
   end
 end
 
@@ -376,6 +379,12 @@ local function strike(self, c)
   doorTo(self, c, "opening")
 end
 
+-- other floors waiting for this car: then a stop only lasts stopDwell
+local function queued(self, c)
+  for i = 1, self.n do if i ~= c.atFloor and dispatch.wants(self, c, i) then return true end end
+  return false
+end
+
 -- policy: "auto" (normal service), "close" (close and keep closed), "hold" (open and keep open),
 -- "manual" (open and close only on the buttons: firefighter and inspection)
 function E:doorStep(c, ci, policy)
@@ -404,13 +413,20 @@ function E:doorStep(c, ci, policy)
     if openPress and canOpen and (st == "closed" or st == "closing") then doorTo(self, c, "opening") end
     if closePress and (st == "open" or st == "opening") and not ci.blocked then doorTo(self, c, "closing") end
   else -- auto
+    local dwell = queued(self, c) and t.stopDwell or t.doorDwell
     if (openReq or openPress) and canOpen then
       if st == "closed" or st == "closing" then
-        d.dwellUntil = now + t.doorDwell
+        d.dwellUntil = now + dwell
         doorTo(self, c, "opening")
       else
-        d.dwellUntil = math.max(d.dwellUntil, now + t.doorDwell)
+        d.dwellUntil = math.max(d.dwellUntil, now + dwell)
       end
+    end
+    -- a call somewhere else cuts an idle minute down to the stop time (counted from when the doors opened), once,
+    -- so the door-open button can still hold them after that
+    if st == "open" and dwell == t.stopDwell and d.openedAt and not d.cut then
+      d.cut = true
+      d.dwellUntil = math.min(d.dwellUntil, math.max(d.openedAt + t.stopDwell, now + (t.carCallDwell or 0)))
     end
     if closePress and st == "open" and not ci.blocked then doorTo(self, c, "closing") end
   end
@@ -421,7 +437,9 @@ function E:doorStep(c, ci, policy)
       c.doorStuck = nil
       if now - d.since >= t.doorTravel then
         doorTo(self, c, "open")
-        if d.dwellUntil < now then d.dwellUntil = now + t.doorDwell end
+        d.openedAt = now
+        d.cut = queued(self, c) or nil
+        if d.dwellUntil < now then d.dwellUntil = now + (d.cut and t.stopDwell or t.doorDwell) end
       end
     elseif now - d.since >= t.doorTimeout then
       c.doorStuck = true
@@ -467,6 +485,11 @@ function E:driveTo(c, i, dt)
   local age = math.min(0.3, math.max(0, now - (c.yTime or now)))
   local yEst = c.y + (c.vcmd or 0) * age
   local rpm, arrived = motion.drive(p, c.mot, yEst, c.stops[i], dt)
+  if arrived and math.abs(c.vMeas or 0) > (p.arriveSpeed or 0.5) then
+    -- a rope surge carried the car through the stop: not arrived, it'll come back on the next steps
+    c.rpm, c.vcmd = 0, 0
+    return false
+  end
   if arrived then
     hold(self, c)
     c.atFloor = i
@@ -561,7 +584,9 @@ end
 function E:commit(c, tgt, d)
   if c.moving and c.target and (dispatch.wants(self, c, c.target) or c.rescue or c.mode ~= "normal") then
     local s = (c.vcmd or 0) >= 0 and 1 or -1
-    if (c.stops[c.target] - c.y) * s > -self.cfg.motion.levelZone then
+    -- a rope surge can throw the car well past its stop; go back for it instead of dropping the call
+    if (c.stops[c.target] - c.y) * s <= -self.cfg.motion.levelZone then return c.target, c.dir end
+    do
       local closer = tgt and tgt ~= c.target and (c.stops[tgt] - c.y) * s > 0
         and (c.stops[c.target] - c.stops[tgt]) * s > 0
       if not closer then return c.target, c.dir end
