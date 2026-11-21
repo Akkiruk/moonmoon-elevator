@@ -129,6 +129,10 @@ C.motion = {
   maxRpm = 256,
   accel = 1.5,             -- blocks/s^2 speeding up
   decel = 1.5,             -- blocks/s^2 slowing down
+  -- The rope is a long spring at the low floors: the car bounced about 0.3 blocks, with a period of about 1.3 s, when
+  -- stopping at L1 in 1.7 s. Near the bottom, speeding up and slowing down ease off towards these.
+  accelLow = 0.5,
+  decelLow = 0.5,
   levelZone = 0.35,        -- blocks from the stop where the car creeps at levelRpm
   stopTol = 0.03,          -- stop when the (lag-corrected) height is this close
   levelTol = 0.0625,       -- level = within 1/16 of a block

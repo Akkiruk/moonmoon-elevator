@@ -44,6 +44,20 @@ ccunit.test("a hall call skips a car with a door fault", function()
   ccunit.eq(w.ctl.hall.up[7], "B")
 end, { timeout = 10 })
 
+ccunit.test("braked just short of a floor with the door forced open: no relevelling there", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  w:call("A", "6")
+  local stop2 = w.plant:stop("A", "2")
+  ccunit.truthy(w:runUntil(function() return w:y("A") > stop2 - 0.9 end, 30))
+  w.plant.cars.A.doorOpen = true
+  w.plant.cars.A.doorJam = true
+  w:run(0.3)
+  local moved = false
+  for _ = 1, 100 do w:step(); if w:p("A").release then moved = true end end
+  ccunit.eq(moved, false, "brake stays on between floors")
+  w.plant.cars.A.doorJam = false
+end, { timeout = 10 })
+
 ccunit.test("door reads open during travel: brake at once, wait", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   w:call("A", "6")

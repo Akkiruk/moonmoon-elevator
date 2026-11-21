@@ -135,8 +135,9 @@ function E:updatePosition(c, ci)
   -- where is it?
   local f, d = nearest(c)
   c.nearest = f
-  -- with the doors open the car stays "at" its floor while the rope lets it drift; relevel() brings it back
-  local tol = c.door.state ~= "closed" and (self.cfg.motion.relevelZone or 0) or 0
+  -- with the doors open the car stays "at" the floor it arrived at while the rope lets it drift; relevel() brings it
+  -- back. Only that floor: a car braked between floors is never "at" one this way.
+  local tol = (c.parked == f and c.door.state ~= "closed") and (self.cfg.motion.relevelZone or 0) or 0
   c.atFloor = (f and not c.moving and d <= math.max(self.cfg.motion.levelTol, tol) and c.posFresh) and f or nil
 end
 
@@ -437,6 +438,7 @@ function E:doorStep(c, ci, policy)
       if st == "closed" or st == "closing" then
         d.dwellUntil = now + dwell
         doorTo(self, c, "opening")
+        c.parked = c.parked or c.atFloor -- opening on a level, stopped car: it's parked here
       else
         d.dwellUntil = math.max(d.dwellUntil, now + dwell)
       end
@@ -500,9 +502,17 @@ function E:driveTo(c, i, dt)
   if not doorsShut(c) or not c.posFresh then hold(self, c); return false end
   local now, p = self.now, self.cfg.motion
   if not c.release then c.release, c.releaseAt, c.moving = true, now, true end
+  c.parked = nil
   if now - c.releaseAt < self.cfg.timing.brakeLift then c.rpm = 0; return false end
   local age = math.min(0.3, math.max(0, now - (c.yTime or now)))
   local yEst = c.y + (c.vcmd or 0) * age
+  if p.decelLow then
+    -- gentler the longer the rope: judged by the lower of where the car is and where it's going
+    local lo, hi = c.stops[1], c.stops[#c.stops]
+    local f = math.max(0, math.min(1, (math.min(c.y, c.stops[i]) - lo) / (hi - lo)))
+    p = setmetatable({ accel = p.accelLow + (p.accel - p.accelLow) * f,
+      decel = p.decelLow + (p.decel - p.decelLow) * f }, { __index = p })
+  end
   local rpm, arrived = motion.drive(p, c.mot, yEst, c.stops[i], dt)
   if arrived and math.abs(c.vMeas or 0) > (p.arriveSpeed or 0.5) then
     -- a rope surge carried the car through the stop: not arrived, it'll come back on the next steps
@@ -524,8 +534,9 @@ end
 -- Returns true while it is handling the car.
 function E:relevel(c)
   local p = self.cfg.motion
-  local f = c.atFloor
-  if not (p.relevelStart and f and c.posFresh and not c.moving) then
+  local f = c.parked
+  local doorsOpen = c.door.state == "open" or c.door.state == "opening"
+  if not (p.relevelStart and f and c.atFloor == f and doorsOpen and c.posFresh and not c.moving) then
     if c.relevelAt then hold(self, c); c.relevelAt = nil end
     return false
   end
@@ -613,6 +624,7 @@ function E:arrive(c, f)
   local count = (nd == "up" and 1) or (nd == "down" and 2) or (td == "down" and 2) or 1
   if f == 1 then count = 1 elseif f == self.n then count = 2 end
   self:chime(c, count)
+  c.parked = f
   c.openReq = true
   c.target = nil
   c.door.presses = 0
