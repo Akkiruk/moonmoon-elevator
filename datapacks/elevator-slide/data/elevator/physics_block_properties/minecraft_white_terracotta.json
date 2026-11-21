@@ -1,0 +1,7 @@
+{
+  "selector": "minecraft:white_terracotta",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

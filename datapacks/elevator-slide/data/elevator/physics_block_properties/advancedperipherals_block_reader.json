@@ -1,0 +1,7 @@
+{
+  "selector": "advancedperipherals:block_reader",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

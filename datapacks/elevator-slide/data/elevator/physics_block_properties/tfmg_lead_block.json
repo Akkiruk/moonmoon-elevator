@@ -1,0 +1,7 @@
+{
+  "selector": "tfmg:lead_block",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

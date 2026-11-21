@@ -1,0 +1,7 @@
+{
+  "selector": "create:redstone_link",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

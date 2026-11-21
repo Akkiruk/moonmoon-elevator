@@ -1,0 +1,7 @@
+{
+  "selector": "create:sticky_mechanical_piston",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

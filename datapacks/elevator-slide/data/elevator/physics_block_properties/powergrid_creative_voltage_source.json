@@ -1,0 +1,7 @@
+{
+  "selector": "powergrid:creative_voltage_source",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

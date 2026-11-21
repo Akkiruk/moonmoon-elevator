@@ -1,0 +1,7 @@
+{
+  "selector": "create:redstone_contact",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

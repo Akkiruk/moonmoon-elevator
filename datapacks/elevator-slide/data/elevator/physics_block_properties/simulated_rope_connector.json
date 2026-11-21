@@ -1,0 +1,7 @@
+{
+  "selector": "simulated:rope_connector",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

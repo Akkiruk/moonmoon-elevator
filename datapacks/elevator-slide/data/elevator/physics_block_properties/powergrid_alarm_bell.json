@@ -1,0 +1,7 @@
+{
+  "selector": "powergrid:alarm_bell",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

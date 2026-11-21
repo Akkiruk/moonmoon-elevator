@@ -1,0 +1,7 @@
+{
+  "selector": "minecraft:red_terracotta",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

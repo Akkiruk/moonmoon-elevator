@@ -1,0 +1,7 @@
+{
+  "selector": "securitycraft:keycard_reader",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

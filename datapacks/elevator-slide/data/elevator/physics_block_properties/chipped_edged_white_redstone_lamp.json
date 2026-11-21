@@ -1,0 +1,7 @@
+{
+  "selector": "chipped:edged_white_redstone_lamp",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

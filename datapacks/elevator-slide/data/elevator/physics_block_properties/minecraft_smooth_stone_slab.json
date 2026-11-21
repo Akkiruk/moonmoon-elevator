@@ -1,0 +1,7 @@
+{
+  "selector": "minecraft:smooth_stone_slab",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

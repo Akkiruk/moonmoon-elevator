@@ -1,0 +1,7 @@
+{
+  "selector": "computercraft:wireless_modem_normal",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "selector": "computercraft:computer_advanced",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

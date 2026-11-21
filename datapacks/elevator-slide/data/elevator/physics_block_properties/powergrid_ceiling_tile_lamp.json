@@ -1,0 +1,7 @@
+{
+  "selector": "powergrid:ceiling_tile_lamp",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}

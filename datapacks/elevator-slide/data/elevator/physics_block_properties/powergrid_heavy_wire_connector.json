@@ -1,0 +1,7 @@
+{
+  "selector": "powergrid:heavy_wire_connector",
+  "priority": 2000,
+  "properties": {
+    "sable:friction": 0.0
+  }
+}
