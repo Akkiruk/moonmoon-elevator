@@ -103,6 +103,23 @@ ccunit.test("after a stall on the way down the retry reels up to the floor above
   ccunit.truthy(w:y("A") > y, "went up, " .. y .. " -> " .. w:y("A"))
 end, { timeout = 15 })
 
+ccunit.test("after a stall on the way up to a hall call, it goes down first, then serves the call", function()
+  -- one car, as in the test shaft: the hall call stays with A
+  local w = H.world({ start = { A = "G", B = "L1" }, config = function(cfg) cfg.carOrder = { "A" } end })
+  w:hall("5", "down")
+  w:run(0.3)
+  ccunit.eq(w.ctl.hall.down[10], "A")
+  ccunit.truthy(w:runUntil(function() return math.abs(w:p("A").rpm) == w.cfg.motion.cruiseRpm end, 20))
+  w:p("A").jammed = true
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 12))
+  local y = w:y("A")
+  w:p("A").jammed = false
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "cleared itself")
+  ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
+  ccunit.truthy(w:y("A") < y, "went down first, " .. y .. " -> " .. w:y("A"))
+  ccunit.truthy(w:arriveOpen("A", "5", 120), "then served the hall call")
+end, { timeout = 20 })
+
 ccunit.test("after a stall on the way up the retry goes down", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   cruising(w, "A", "6")

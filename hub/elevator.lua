@@ -311,7 +311,7 @@ function E:autoReset(c)
   c.autoResets[#c.autoResets + 1] = self.now
   local pref = c.latched == "Stalled" and -(c.latchDir or 0) or 0
   self:handleEvent({ type = "reset", car = c.name })
-  c.rescuePref = pref ~= 0 and pref or nil
+  c.rescuePref, c.rescueTo = pref ~= 0 and pref or nil, nil
 end
 
 -- Phase II "on" from the cab panel: only in fire service with the car held at G, after a keycard swipe.
@@ -645,7 +645,7 @@ function E:arrive(c, f)
   local count = (nd == "up" and 1) or (nd == "down" and 2) or (td == "down" and 2) or 1
   if f == 1 then count = 1 elseif f == self.n then count = 2 end
   self:chime(c, count)
-  c.parked, c.rescuePref = f, nil
+  c.parked, c.rescuePref, c.rescueTo = f, nil, nil
   c.openReq = true
   c.target = nil
   c.door.presses = 0
@@ -746,7 +746,17 @@ function E:runCar(c, ci, dt)
     return
   end
   c.relevelGaveUp = nil
-  local tgt, d = self:commit(c, dispatch.nextTarget(self, c))
+  local tgt, d
+  if c.rescuePref and c.atFloor and not c.moving then c.rescuePref, c.rescueTo = nil, nil end
+  if c.rescuePref then
+    -- just recovered from a stall: get clear of the jam the other way before serving any call (a hall call above
+    -- sent it straight back up into the same jam). Picked once: mid-start the car reads as moving at no speed.
+    c.rescueTo = c.rescueTo or self:nearestStop(c)
+    tgt, d = c.rescueTo, c.rescuePref > 0 and "up" or "down"
+    c.rescue = true
+  else
+    tgt, d = self:commit(c, dispatch.nextTarget(self, c))
+  end
   if tgt and c.atFloor == tgt and not c.moving then
     c.dir = d or c.dir
     self:arrive(c, tgt)
