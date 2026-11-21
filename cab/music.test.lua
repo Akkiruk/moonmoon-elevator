@@ -4,14 +4,14 @@
 local music = require "music"
 
 local realFind = peripheral.find
-local calls, stops, volumes
+local calls, stops, volumes, sizes
 local function spy()
-  calls, stops, volumes = 0, 0, {}
+  calls, stops, volumes, sizes = 0, 0, {}, {}
   local sp = realFind("speaker")
   local fake = setmetatable({
     playAudio = function(buf, vol)
       local ok = sp.playAudio(buf, vol)
-      if ok then calls = calls + 1; volumes[#volumes + 1] = vol end
+      if ok then calls = calls + 1; volumes[#volumes + 1] = vol; sizes[#sizes + 1] = #buf end
       return ok
     end,
     stop = function() stops = stops + 1; return sp.stop() end,
@@ -126,3 +126,33 @@ ccunit.test("play() switches track", function()
   ccunit.truthy(calls >= 3, "calls=" .. calls)
   music.stop()
 end, { timeout = 15 })
+
+-- Half-rate files (name.24k.dfpwm): 2048 bytes = 16384 samples at 24 kHz, played as 32768 at 48 kHz.
+ccunit.test("half rate: upsampled to 32768 samples per chunk, loops, ducks, stops", function()
+  spy()
+  local f = fs.open("/h.24k.dfpwm", "wb")
+  for _ = 1, 3 do f.write(string.rep(string.char(0x55, 0xAA), 1024)) end
+  f.close()
+  local atDuck, atStop
+  with(function()
+    music.play("/h.24k.dfpwm")
+    sleep(5)
+    music.duck(true); sleep(0.3); atDuck = calls; sleep(2)
+    ccunit.eq(calls, atDuck, "silent while ducked")
+    music.duck(false); sleep(1)
+    music.stop(); sleep(0.3); atStop = calls; sleep(2)
+  end)
+  ccunit.truthy(atDuck > 3, "looped, calls=" .. atDuck)
+  for i, n in ipairs(sizes) do ccunit.eq(n, 32768, "chunk " .. i .. " of " .. table.concat(sizes, ",")) end
+  ccunit.truthy(atStop > atDuck, "resumed after the duck")
+  ccunit.eq(calls, atStop, "stopped")
+end, { timeout = 20 })
+
+ccunit.test("the real Sins file plays and one chunk's upsample is cheap", function()
+  spy()
+  with(function() music.play("/tracks/sins.24k.dfpwm"); sleep(3) end)
+  music.stop()
+  ccunit.truthy(calls >= 2, "calls=" .. calls)
+  ccunit.eq(fs.getSize("/tracks/sins.24k.dfpwm") < 700000, true)
+  error("cpu per chunk: " .. tostring(music.lastUpsample) .. " s", 0)
+end, { timeout = 10 })

@@ -13,7 +13,7 @@ Goal: work as much like a real elevator as possible. Creative parts are fine, bu
 ## Computers
 - Hub: the machine-room computer at the top of the hoistway, with the monitor there, runs both cars (queue, dispatch, motors, doors).
 - Cab-top computer on each car: monitoring, the cab monitor display, chimes, and elevator music (the red_exp "Sins" disc; built in cab/music.lua).
-- A small plaque monitor in each cab, above the control panel: capacity, brand, model and the other things you would see on a real elevator plaque.
+- A small plaque monitor in each cab, above the control panel: capacity, brand, model and the other things you would see on a real elevator plaque. The text is ours to choose (sensible defaults), e.g. "MOONLIFT ELEVATOR CO.", model ML-11 Traction, Car A or B, rated load 1600 kg / 21 persons, rated speed, serial number, last inspection and next due, and "In case of fire, use stairs".
 - The player detector and keycard reader stay where they are in the cab and connect through modems (space and balance).
 
 ## Behaviour
@@ -24,6 +24,7 @@ Goal: work as much like a real elevator as possible. Creative parts are fine, bu
 - Blocked doors (player detector) reopen and retry. 3 failed closes in a row, or 3 door-open presses, set off the cab alarm.
 - With no stops left, a car closes its doors and waits at its floor.
 - The basement (access-controlled) floors need a SecurityCraft keycard: swipe in the cab, then press the floor.
+- Lab lockdown: a second Create Redstone Link input. While it is on, L1 and L2 (the lab floors) cannot be reached: keycard plus floor button does nothing, and the hall calls on L1 and L2 do nothing. All other floors work normally. When the signal goes off, it returns to normal. Our default for the edge cases: pending L1/L2 stops are cancelled when lockdown starts, and a car already at L1/L2 can still leave (ask Moon-Moon if he would rather it be held for containment). Note: L1 and L2 have no stairwell, by design.
 - Speed governor: brake if the car goes too fast. Cutting the motor is acceptable, and a physical brake as well would be appreciated.
 - Maintenance (inspection) mode: controls on top of the cab. When switched on, they give manual up and down to the console and the car stops answering calls.
 - Fire service:

@@ -1,13 +1,13 @@
--- play [url-or-path] [volume]   : loop a track on the speaker until you press a key.
--- With no source it plays the default track (see DEFAULT_URL), falling back to the short local clip.
+-- play [path-or-url] [volume]   : loop a track on the speaker until you press a key.
+-- With no source it plays the full Sins track from the computer's own disk (515 KB at half rate).
 local music = require "music"
 
-local DEFAULT_URL = "https://raw.githubusercontent.com/OWNER/REPO/main/cab/tracks/sins.dfpwm" -- owner: set this
-local FALLBACK = "/tracks/sins-short.dfpwm"
+local DEFAULT = "/tracks/sins.24k.dfpwm"
+-- Optional: stream a full-rate file from a URL instead, e.g. `play https://.../sins.dfpwm`.
 
 local args = { ... }
 music.setVolume(tonumber(args[2]) or 1)
-music.play(args[1] or DEFAULT_URL, { fallback = FALLBACK })
-print("Playing " .. (args[1] or DEFAULT_URL) .. ". Press any key to stop.")
+music.play(args[1] or DEFAULT)
+print("Playing " .. (args[1] or DEFAULT) .. ". Press any key to stop.")
 parallel.waitForAny(music.run, function() os.pullEvent("key") end)
 music.stop()

@@ -12,6 +12,14 @@ local dfpwm = require "cc.audio.dfpwm"
 local CHUNK = 4096 -- bytes of DFPWM per playAudio call = 32768 samples = 0.68 s
 local RETRY = 10 -- seconds to wait when neither the source nor the fallback opens
 
+-- A file named like sins.24k.dfpwm holds 24000 samples/s (16k works too); it is decoded and stretched back to
+-- the speaker's 48 kHz by linear interpolation, so a track takes 1/2 (or 1/3) of the disk.
+local function rateFactor(path)
+  local k = path:match("%.(%d+)k%.dfpwm$")
+  local f = k and 48 / tonumber(k)
+  return (f and f >= 1 and f == math.floor(f)) and f or 1
+end
+
 local music = { speaker = nil } -- music.speaker: a peripheral name; nil means "find one"
 local st = { src = nil, fallback = nil, volume = 1, ducked = false, gen = 0 }
 
@@ -43,6 +51,19 @@ end
 
 function music.isPlaying() return st.src ~= nil and not st.ducked end
 
+-- Stretch decoded samples (-128..127) by an integer factor, carrying the last sample into the next chunk.
+local function upsample(buf, f, prev)
+  local out, n = {}, 0
+  for i = 1, #buf do
+    local cur = buf[i]
+    local step = (cur - prev) / f
+    for j = 1, f - 1 do n = n + 1; out[n] = prev + step * j end
+    n = n + 1; out[n] = cur
+    prev = cur
+  end
+  return out, prev
+end
+
 local function getSpeaker()
   if music.speaker then return peripheral.wrap(music.speaker) end
   return peripheral.find("speaker")
@@ -66,18 +87,25 @@ local function waitSpace()
 end
 
 -- Play one source to its end. Returns early when the settings change (gen) .
-local function playOne(h, gen)
+local function playOne(h, gen, factor)
+  local chunkBytes = math.floor(CHUNK / factor) -- keeps the output at 32768 samples
+  local prev = 0
   local dec = dfpwm.make_decoder()
   local speaker = getSpeaker()
   while h and st.gen == gen and speaker do
     if st.ducked then
       speaker.stop()
-      dec = dfpwm.make_decoder() -- do not carry the decoder's state over the gap
+      dec, prev = dfpwm.make_decoder(), 0 -- do not carry the decoder's state over the gap
       while st.ducked and st.gen == gen do os.pullEvent("music_cmd") end
     else
-      local chunk = h.read(CHUNK)
+      local chunk = h.read(chunkBytes)
       if not chunk or #chunk == 0 then return true end -- end of the track
       local buf = dec(chunk)
+      if factor > 1 then
+        local t0 = os.clock()
+        buf, prev = upsample(buf, factor, prev)
+        music.lastUpsample = os.clock() - t0 -- seconds of CPU for the last chunk, for the tests
+      end
       while st.gen == gen and not st.ducked and not speaker.playAudio(buf, st.volume) do
         waitSpace()
       end
@@ -98,7 +126,9 @@ function music.run()
       os.pullEvent("music_cmd")
     else
       local gen = st.gen
-      local h = open(st.src) or (st.fallback and open(st.fallback))
+      local path = st.src
+      local h = open(path)
+      if not h and st.fallback then path = st.fallback; h = open(path) end
       if not h then
         -- nothing to play: wait, but wake early for a new command
         local t = os.startTimer(RETRY)
@@ -106,7 +136,7 @@ function music.run()
           local ev, id = os.pullEvent()
         until (ev == "timer" and id == t) or (ev == "music_cmd" and st.gen ~= gen)
       else
-        local ok, err = pcall(playOne, h, gen)
+        local ok, err = pcall(playOne, h, gen, rateFactor(path))
         h.close()
         if not ok then
           -- e.g. the speaker was broken or removed: do not spin, and keep the player alive

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Turn any audio file ffmpeg can read into CC:Tweaked DFPWM (48 kHz, mono, 6000 bytes per second).
+// Turn any audio file ffmpeg can read into CC:Tweaked DFPWM (mono; --rate 48000 is full quality, 24000 or 16000 are stored at half or a third and the player upsamples).
 //   node tools/to-dfpwm.mjs in.ogg out.dfpwm [--seconds 90] [--start 0] [--fade 2] [--gain -3]
+// Name a low-rate file like sins.24k.dfpwm: the player reads the rate from the name.
 // ffmpeg is taken from $FFMPEG, then the usual WinGet install, then PATH.
 import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
@@ -12,10 +13,10 @@ const ffmpeg = process.env.FFMPEG || (process.env.LOCALAPPDATA && existsSync(WIN
 
 const [input, output, ...rest] = process.argv.slice(2);
 if (!input || !output || input.startsWith("--")) {
-  console.error("usage: node tools/to-dfpwm.mjs <input> <output.dfpwm> [--seconds N] [--start N] [--fade N] [--gain dB]");
+  console.error("usage: node tools/to-dfpwm.mjs <input> <output.dfpwm> [--seconds N] [--start N] [--fade N] [--gain dB] [--rate 48000|24000|16000]");
   process.exit(2);
 }
-const opt = { seconds: 0, start: 0, fade: 0, gain: 0 };
+const opt = { seconds: 0, start: 0, fade: 0, gain: 0, rate: 48000 };
 for (let i = 0; i < rest.length; i += 2) {
   const k = rest[i].replace(/^--/, "");
   if (!(k in opt) || rest[i + 1] === undefined || isNaN(Number(rest[i + 1]))) {
@@ -34,7 +35,7 @@ const args = ["-y", "-hide_banner", "-loglevel", "error"];
 if (opt.start) args.push("-ss", String(opt.start));
 args.push("-i", input);
 if (opt.seconds) args.push("-t", String(opt.seconds));
-args.push("-vn", "-ac", "1", "-ar", "48000");
+args.push("-vn", "-ac", "1", "-ar", String(opt.rate));
 if (filters.length) args.push("-af", filters.join(","));
 args.push("-c:a", "dfpwm", "-f", "dfpwm", output);
 
@@ -44,4 +45,4 @@ if (r.error || r.status !== 0) {
   process.exit(1);
 }
 const bytes = statSync(output).size;
-console.log(`${output}: ${bytes} bytes, ${(bytes / 6000).toFixed(1)} s${bytes > 1000000 ? " (too big for a 1 MB computer disk: stream it)" : ""}`);
+console.log(`${output}: ${bytes} bytes, ${(bytes / (opt.rate / 8)).toFixed(1)} s${bytes > 1000000 ? " (too big for a 1 MB computer disk: stream it)" : ""}`);
