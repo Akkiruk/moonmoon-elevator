@@ -100,6 +100,10 @@ function H:write(out, now)
       local rpm = (o.release and o.rpm or 0) * (cc.motorSign or 1)
       if not o.release then self:output(cc.brakeRelease, false, force) end
       self:setMotor(name, rpm, force)
+      if cc.tension then
+        local up = o.release and o.rpm or 0 -- + is the car going up
+        self:setExtra("tension" .. name, cc.tension.motor, cc.tension.motorSign * (up - (cc.tension.reelRpm or 0)))
+      end
       if o.release then self:output(cc.brakeRelease, true, force) end
       self:output(cc.doorOpen, o.doorOpen, force)
       for i = 1, #cfg.floors do
@@ -120,14 +124,19 @@ function H:setMotor(name, rpm, force)
   else self:problem(sig, "error"); self.motorRpm[name] = nil end
 end
 
+-- A motor that isn't the car's own (counterweight, bottom rope): set it when the speed changes.
+function H:setExtra(k, motor, rpm)
+  if self.motorRpm[k] == rpm then return end
+  local m = self:wrap(motor)
+  local sig = { motor, "motor" }
+  if not m then self:problem(sig, "missing"); self.motorRpm[k] = nil; return end
+  if pcall(m.setGeneratedSpeed, rpm) then self.motorRpm[k] = rpm; self.problems[key(sig)] = nil
+  else self:problem(sig, "error"); self.motorRpm[k] = nil end
+end
+
 function H:setCounterweight(name, rpm)
   local cw = self.cfg.cars[name].counterweight
-  if not cw or self.motorRpm["cw" .. name] == rpm then return end
-  local m = self:wrap(cw.motor)
-  local sig = { cw.motor, "motor" }
-  if not m then self:problem(sig, "missing"); self.motorRpm["cw" .. name] = nil; return end
-  if pcall(m.setGeneratedSpeed, rpm) then self.motorRpm["cw" .. name] = rpm; self.problems[key(sig)] = nil
-  else self:problem(sig, "error"); self.motorRpm["cw" .. name] = nil end
+  if cw then self:setExtra("cw" .. name, cw.motor, rpm) end
 end
 
 -- Stop every motor and set every brake. Used at start-up and on a crash.
@@ -139,6 +148,7 @@ function H:safeStop()
     self:output(cc.doorOpen, false, true)
     self.motorRpm["cw" .. name] = nil
     self:setCounterweight(name, 0)
+    if cc.tension then self.motorRpm["tension" .. name] = nil; self:setExtra("tension" .. name, cc.tension.motor, 0) end
   end
 end
 

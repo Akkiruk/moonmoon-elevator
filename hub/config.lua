@@ -58,6 +58,11 @@ C.cars = {
     -- (counterweight/cw.lua) that reports its height. top / bottom: its GPS height with the car at the bottom stop /
     -- the top stop. nil = no counterweight control.
     counterweight = nil, -- e.g. { motor = "Create_CreativeMotor_2", motorSign = 1, top = 128, bottom = 69 },
+    -- Steadying rope from a winch on the pit floor up to the car's underside, on its own motor. It pays out as the
+    -- car climbs and reels in as it comes down, plus `reelRpm` of steady reel-in; the winch stops reeling in once
+    -- its rope is stretched (simulated's max_rope_winch_stretch_allowed), which keeps it taut without a tug of war.
+    -- motorSign: the sign that pays out. nil = no bottom rope.
+    tension = nil, -- e.g. { motor = "Create_CreativeMotor_3", motorSign = 1, reelRpm = 4 },
     landingDoors = { -- feeds the Redstone Link transmitter for each landing door, on = open
       S("redstone_relay_3", "top"),   -- L1
       S("redstone_relay_3", "right"), -- L2
