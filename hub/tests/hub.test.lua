@@ -27,14 +27,14 @@ ccunit.test("hub boots, brakes the car, draws the panel and talks to the landing
   ccunit.contains(panel, "Lockdown")
   ccunit.contains(panel, "y 112.00")
   for _, line in ipairs(panel) do
-    ccunit.truthy(not line:find("not wired"), "car A's wiring is all there: " .. line)
+    ccunit.truthy(not line:find("not wired"), "both cars' wiring is all there: " .. line)
   end
   local landings, floors, lit = 0, {}, false
   for _, m in ipairs(sent) do
     if m.type == "landing" then
       landings = landings + 1
       floors[m.floor] = true
-      ccunit.eq(m.car, "A", "car B is not configured")
+      ccunit.truthy(m.car == "A" or m.car == "B", "a landing message names its car")
       if m.floor == "G" and m.up then lit = true end
     end
   end

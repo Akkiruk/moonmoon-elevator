@@ -64,14 +64,14 @@ ccunit.test("one car only: car B absent from the config", function()
   ccunit.eq(w.ctl:landingState("A", 10).car, "A")
 end, { timeout = 10 })
 
-ccunit.test("the shipped config runs car A alone", function()
+ccunit.test("the shipped config runs both cars", function()
   local cfg = require "config"
   local E = require "elevator"
   local ctl = E.new(cfg)
-  ccunit.eq(ctl.order, { "A" })
+  ccunit.eq(ctl.order, { "A", "B" })
   local out = ctl:step(0, { cars = { A = { y = 108, yTime = 0, door = { open = false, ok = true, t = 0 } } } })
   ccunit.eq(out.cars.A.release, false)
-  ccunit.eq(out.cars.B, nil)
+  ccunit.eq(out.cars.B.release, false, "car B with no position stays braked")
 end, { timeout = 5 })
 
 ccunit.test("a floor with no contact configured skips the cross-check", function()

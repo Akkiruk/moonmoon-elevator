@@ -26,7 +26,7 @@ C.keycardFloors = { "L1", "L2" } -- need a keycard swipe in the cab first
 C.labFloors = { "L1", "L2" }     -- sealed during lab lockdown
 C.lockdownBoundary = "P3"        -- a car below this floor's stop when lockdown starts stops where it is
 
-C.carOrder = { "A" } -- add "B" once the second shaft is built; its entry below is ready
+C.carOrder = { "A", "B" }
 
 -- Hub peripherals.
 C.modem = nil                    -- wireless modem side or name; nil = the first wireless modem found
@@ -81,16 +81,25 @@ C.cars = {
     doorways = {},
   },
   B = {
-    motor = "Create_CreativeMotor_2",
-    motorSign = 1,
-    brakeRelease = S("redstone_relay_10", "top"),
-    doorOpen     = S("redstone_relay_10", "bottom"),
+    motor = "Create_CreativeMotor_6",
+    motorSign = -1,                               -- mirrored drive: +RPM lowers this car
+    brakeRelease = S("redstone_relay_6", "right"),
+    doorOpen     = S("redstone_relay_6", "left"),
     contacts = {},
+    counterweight = nil,
+    tension = nil,
     landingDoors = {
-      S("redstone_relay_13", "top"), S("redstone_relay_13", "bottom"), S("redstone_relay_13", "left"),
-      S("redstone_relay_13", "right"), S("redstone_relay_13", "front"), S("redstone_relay_13", "back"),
-      S("redstone_relay_14", "top"), S("redstone_relay_14", "bottom"), S("redstone_relay_14", "left"),
-      S("redstone_relay_14", "right"), S("redstone_relay_14", "front"),
+      S("redstone_relay_7", "top"),   -- L1
+      S("redstone_relay_7", "right"), -- L2
+      S("redstone_relay_7", "left"),  -- P3
+      S("redstone_relay_7", "front"), -- P2
+      S("redstone_relay_8", "top"),   -- P1
+      S("redstone_relay_8", "right"), -- G
+      S("redstone_relay_8", "left"),  -- 2
+      S("redstone_relay_9", "top"),   -- 3
+      S("redstone_relay_9", "right"), -- 4
+      S("redstone_relay_9", "left"),  -- 5
+      S("redstone_relay_9", "back"),  -- 6
     },
     doorways = {},
     -- thresholds = { ... } -- only if shaft B's landings differ from C.thresholds
@@ -175,5 +184,7 @@ C.autoReset = { after = 20, still = 5, stillSpeed = 0.1, maxAfter = 300, calmAft
 
 -- car A's doorways: two blocks wide (x 46-47), z -10 to -9, from the door's bottom block up two
 for i, t in ipairs(C.thresholds) do C.cars.A.doorways[i] = { 46, t, -10, 47, t + 1, -9 } end
+-- car B's are the mirror, x 39-40
+for i, t in ipairs(C.thresholds) do C.cars.B.doorways[i] = { 39, t, -10, 40, t + 1, -9 } end
 
 return C
