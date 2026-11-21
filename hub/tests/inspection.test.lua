@@ -8,7 +8,7 @@ ccunit.test("inspection: moves only while a button is held, slowly", function()
   p.inspect = true
   w:run(0.5)
   ccunit.eq(w:mode("A"), "inspection")
-  ccunit.eq(w.ctl:indicator("A", 3).text, "Maintenance")
+  ccunit.eq(w:landing("A", "P3").mode, "inspection", "landings show Maintenance")
   w:call("A", "4")
   w:hall("G", "up")
   w:run(5)

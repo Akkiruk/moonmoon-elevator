@@ -13,7 +13,6 @@
     { "name": "player_detector", "type": "playerDetector" }
   ],
   "monitors": [
-    { "name": "monitor_0", "blocksWide": 4, "blocksHigh": 3 },
-    { "name": "monitor_6", "blocksWide": 2, "blocksHigh": 1 }
+    { "name": "monitor_0", "blocksWide": 4, "blocksHigh": 3 }
   ]
 }

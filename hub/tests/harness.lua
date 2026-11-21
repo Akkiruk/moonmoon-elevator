@@ -18,10 +18,11 @@ end
 function H.world(opts)
   opts = opts or {}
   local cfg = copy(require "config")
+  cfg.carOrder = { "A", "B" } -- the tests run both shafts unless they take one away
   if opts.config then opts.config(cfg) end
   local w = setmetatable({
     cfg = cfg, now = 0, dt = 0.05, steps = 0,
-    msgs = {}, events = {}, hallUp = {}, hallDown = {},
+    msgs = {}, events = {},
   }, W)
   w.ctl = Elevator.new(cfg)
   w.plant = Plant.new(cfg, opts.start or { A = "G", B = "G" })
@@ -33,9 +34,6 @@ end
 function W:step()
   local inp = self.plant:inputs(self.now)
   inp.events, self.events = self.events, {}
-  inp.hallUp, inp.hallDown = {}, {}
-  for i, untilT in pairs(self.hallUp) do inp.hallUp[i] = self.now < untilT end
-  for i, untilT in pairs(self.hallDown) do inp.hallDown[i] = self.now < untilT end
   self.out = self.ctl:step(self.now, inp)
   for _, m in ipairs(self.out.messages) do
     m.at = self.now
@@ -70,10 +68,13 @@ function W:keycard(car) self.events[#self.events + 1] = { type = "keycard", car 
 function W:alarmButton(car) self.events[#self.events + 1] = { type = "alarm_button", car = car } end
 function W:reset(car) self.events[#self.events + 1] = { type = "reset", car = car } end
 
+-- a touch on a landing computer's call panel
 function W:hall(floor, dir)
-  local t = dir == "up" and self.hallUp or self.hallDown
-  t[self:fi(floor)] = self.now + 0.2
+  if type(floor) == "number" then floor = self.cfg.floors[floor] end
+  self.events[#self.events + 1] = { type = "hall", floor = floor, dir = dir }
 end
+
+function W:landing(car, floor) return self.ctl:landingState(car, self:fi(floor)) end
 
 function W:car(name) return self.ctl.cars[name] end
 function W:p(name) return self.plant.cars[name] end

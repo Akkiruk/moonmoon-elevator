@@ -1,5 +1,5 @@
--- All hardware access for the hub, driven by config.lua. Nothing else touches a peripheral (except the monitors,
--- which panel.lua draws on through the objects handed out here).
+-- All hardware access for the hub, driven by config.lua. Nothing else touches a peripheral (panel.lua draws on the
+-- monitor handed out here).
 local H = {}
 H.__index = H
 
@@ -8,6 +8,8 @@ local SIDES = { top = true, bottom = true, left = true, right = true, front = tr
 function H.new(cfg, per)
   local self = setmetatable({ cfg = cfg, p = per or peripheral, out = {}, motorRpm = {}, problems = {} }, H)
   self.lastRefresh = -1e9
+  self.order = {}
+  for _, n in ipairs(cfg.carOrder) do if cfg.cars[n] then self.order[#self.order + 1] = n end end
   return self
 end
 
@@ -63,20 +65,16 @@ function H:output(sig, value, force)
   if ok then self.out[k] = value; self.problems[k] = nil else self:problem(sig, "error"); self.out[k] = nil end
 end
 
--- Everything the controller reads from redstone, as the `inputs` table of elevator.lua (without positions, door
--- state, the doorway check and events, which hub.lua merges in).
+-- Everything the controller reads from redstone, as the `inputs` table of elevator.lua. Positions, door state,
+-- the doorway check and the rednet events get merged in by hub.lua.
 function H:read()
   local cfg = self.cfg
   local n = #cfg.floors
-  local inp = { cars = {}, hallUp = {}, hallDown = {} }
+  local inp = { cars = {} }
   inp.fire = self:input(cfg.fireAlarm)
   inp.lockdown = self:input(cfg.lockdown)
   inp.fireReset = self:input(cfg.fireReset)
-  for i = 1, n do
-    inp.hallUp[i] = self:input(cfg.hallUp and cfg.hallUp[i])
-    inp.hallDown[i] = self:input(cfg.hallDown and cfg.hallDown[i])
-  end
-  for _, name in ipairs(cfg.carOrder) do
+  for _, name in ipairs(self.order) do
     local cc = cfg.cars[name]
     local ci = { contacts = {}, contactsWired = {} }
     for i = 1, n do
@@ -96,7 +94,7 @@ function H:write(out, now)
   local cfg = self.cfg
   local force = false
   if now and now - self.lastRefresh >= 5 then force, self.lastRefresh = true, now end
-  for _, name in ipairs(cfg.carOrder) do
+  for _, name in ipairs(self.order) do
     local cc, o = cfg.cars[name], out.cars[name]
     if o then
       local rpm = (o.release and o.rpm or 0) * (cc.motorSign or 1)
@@ -108,10 +106,6 @@ function H:write(out, now)
         self:output(cc.landingDoors and cc.landingDoors[i], o.landing[i], force)
       end
     end
-  end
-  for i = 1, #cfg.floors do
-    self:output(cfg.hallUpLight and cfg.hallUpLight[i], out.hallUpLit[i], force)
-    self:output(cfg.hallDownLight and cfg.hallDownLight[i], out.hallDownLit[i], force)
   end
 end
 
@@ -128,7 +122,7 @@ end
 
 -- Stop both motors and set every brake. Used at start-up and on a crash.
 function H:safeStop()
-  for _, name in ipairs(self.cfg.carOrder) do
+  for _, name in ipairs(self.order) do
     local cc = self.cfg.cars[name]
     self:output(cc.brakeRelease, false, true)
     self:setMotor(name, 0, true)
@@ -151,13 +145,6 @@ end
 
 function H:monitor()
   local m = self:wrap(self.cfg.monitor)
-  if m and m.setTextScale then return m end
-  return nil
-end
-
-function H:landingMonitor(name, i)
-  local list = self.cfg.cars[name].landingMonitors
-  local m = list and self:wrap(list[i])
   if m and m.setTextScale then return m end
   return nil
 end

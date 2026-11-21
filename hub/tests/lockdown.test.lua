@@ -62,11 +62,13 @@ ccunit.test("a car at L1 is trapped; its signs say Out of Order except on L1/L2"
   w:run(20)
   ccunit.truthy(w:levelAt("A", "L1"), "stays at L1")
   ccunit.eq(w:p("A").release, false)
-  ccunit.eq(w.ctl:indicator("A", 6).text, "Out of Order", "G sign")
-  ccunit.eq(w.ctl:indicator("A", 11).text, "Out of Order", "6 sign")
-  ccunit.eq(w.ctl:indicator("A", 1).text, "L1", "L1 sign keeps showing it at L1")
-  ccunit.eq(w.ctl:indicator("A", 2).text, "L1", "L2 sign too")
-  ccunit.eq(w.ctl:indicator("B", 6).kind, "floor", "car B normal")
+  ccunit.eq(w:landing("A", "G").outOfOrder, true, "G sign")
+  ccunit.eq(w:landing("A", "6").outOfOrder, true, "6 sign")
+  ccunit.eq(w:landing("A", "L1").outOfOrder, false, "L1 sign keeps showing the car")
+  ccunit.eq(w:landing("A", "L1").carFloor, "L1")
+  ccunit.eq(w:landing("A", "L2").outOfOrder, false, "L2 sign too")
+  ccunit.eq(w:landing("A", "L2").carFloor, "L1")
+  ccunit.eq(w:landing("B", "G").outOfOrder, false, "car B normal")
   -- B answered the G call
   ccunit.truthy(w:levelAt("B", "G"), "B took the hall call")
   -- music stops in lockdown
@@ -93,7 +95,7 @@ ccunit.test("a car departing L2 stops where it is and clears its queue", functio
   ccunit.truthy(math.abs(w:y("A") - y) < 0.2, "stopped where it was")
   ccunit.eq(w:p("A").release, false)
   ccunit.eq(next(w:car("A").calls), nil, "queue cleared")
-  ccunit.eq(w.ctl:indicator("A", 6).text, "Out of Order")
+  ccunit.eq(w:landing("A", "G").outOfOrder, true)
   ccunit.eq(w.out.cars.A.doorOpen, false)
   -- released: it goes to the nearest floor and lets people out
   w.plant.lockdown = false

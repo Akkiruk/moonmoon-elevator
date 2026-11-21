@@ -14,7 +14,7 @@ ccunit.test("hall calls go to the closer car", function()
   ccunit.truthy(w:arriveOpen("A", "P1", 40), "A answers P1")
   ccunit.eq(w.ctl.hall.down[10], nil, "5 down cleared")
   ccunit.eq(w.ctl.hall.up[5], nil, "P1 up cleared")
-  ccunit.eq(w.out.hallUpLit[5], false)
+  ccunit.eq(w:landing("A", "P1").up, false, "button light off")
 end, { timeout = 20 })
 
 ccunit.test("collects in the direction of travel, then reverses", function()

@@ -1,6 +1,6 @@
 -- Moonlift hub: the machine-room computer that runs both cars.
 -- Reads the relays and the cabs' rednet messages, steps the controller (elevator.lua), drives the motors, brakes and
--- doors, answers the cabs and panels, and draws the control panel and the landing indicators.
+-- doors, answers the cabs, panels and landing computers, and draws the control panel.
 local cfg = require "config"
 local Elevator = require "elevator"
 local HW = require "hw"
@@ -12,8 +12,8 @@ local T = cfg.timing
 
 local pos, door, blocked, events = {}, {}, {}, {}
 local lastState, lastPanel, lastSentAt = {}, {}, {}
+local lastLanding, landingAt = {}, {}
 local targets = {}
-local indKeys = {}
 
 local function clock() return os.clock() end
 
@@ -22,7 +22,11 @@ local function send(msg) rednet.broadcast(msg, cfg.protocol) end
 local function netLoop()
   while true do
     local _, msg = rednet.receive(cfg.protocol)
-    if type(msg) == "table" and cfg.cars[msg.car] then
+    if type(msg) == "table" and msg.type == "hall" then
+      events[#events + 1] = msg
+    elseif type(msg) == "table" and msg.type == "hello" and msg.role == "landing" then
+      lastLanding[tostring(msg.floor)] = nil
+    elseif type(msg) == "table" and cfg.cars[msg.car] then
       local t = msg.type
       if t == "pos" then
         pos[msg.car] = { y = type(msg.y) == "number" and msg.y or nil, t = clock() }
@@ -40,7 +44,7 @@ end
 -- The doorway check calls the AP player detector, which waits a server tick, so it runs on its own.
 local function detectorLoop()
   while true do
-    for _, name in ipairs(cfg.carOrder) do
+    for _, name in ipairs(ctl.order) do
       local f = ctl.now and ctl:doorwayFloor(name)
       if f then blocked[name] = hw:doorway(name, f) or false else blocked[name] = false end
     end
@@ -67,19 +71,17 @@ local function drawAll()
     m.setTextScale(cfg.monitorScale or 0.5)
     targets = panel.drawPanel(m, ctl, { problems = hw:problemList() })
   end
-  for _, name in ipairs(cfg.carOrder) do
-    indKeys[name] = indKeys[name] or {}
-    for i = 1, #cfg.floors do
-      local lm = hw:landingMonitor(name, i)
-      if lm then
-        local ind = ctl:indicator(name, i)
-        local k = panel.indicatorKey(ind)
-        if indKeys[name][i] ~= k then
-          indKeys[name][i] = k
-          lm.setTextScale(1)
-          panel.drawIndicator(lm, ind)
-        end
-      end
+end
+
+-- one landing message per car per floor; a landing that says hello gets its floor resent
+local function sendLandings(now)
+  for i, f in ipairs(cfg.floors) do
+    local msgs = {}
+    for _, name in ipairs(ctl.order) do msgs[#msgs + 1] = ctl:landingState(name, i) end
+    local key = textutils.serialize(msgs)
+    if key ~= lastLanding[f] or not landingAt[f] or now - landingAt[f] >= 2 then
+      lastLanding[f], landingAt[f] = key, now
+      for _, m in ipairs(msgs) do send(m) end
     end
   end
 end
@@ -99,7 +101,8 @@ local function controlLoop()
     local out = ctl:step(now, inp)
     hw:write(out, now)
     for _, msg in ipairs(out.messages) do send(msg) end
-    for _, name in ipairs(cfg.carOrder) do
+    sendLandings(now)
+    for _, name in ipairs(ctl.order) do
       local st, pn = ctl:carState(name), ctl:panelState(name)
       local due = not lastSentAt[name] or now - lastSentAt[name] >= T.stateEvery
       if due or not same(st, lastState[name]) then send(st); lastState[name] = st end
@@ -114,7 +117,7 @@ end
 local function main()
   hw:safeStop()
   if not hw:openModem() then print("hub: no wireless modem found; the cabs cannot reach the hub") end
-  print("Moonlift hub running. Cars: " .. table.concat(cfg.carOrder, ", "))
+  print("Moonlift hub running. Cars: " .. table.concat(ctl.order, ", "))
   parallel.waitForAny(netLoop, detectorLoop, touchLoop, controlLoop)
 end
 

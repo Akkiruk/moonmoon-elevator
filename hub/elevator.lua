@@ -3,20 +3,18 @@
 --
 -- inputs = {
 --   fire, lockdown, fireReset = bool,
---   hallUp = { [floor] = bool }, hallDown = { [floor] = bool },
 --   cars = { A = {
 --     y, yTime,                      -- last GPS height and when it arrived (hub clock); y = nil: no position
---     contacts = { [floor] = bool }, contactsWired = { [floor] = bool },
+--     contacts = { [floor] = bool }, contactsWired = { [floor] = bool }, -- unwired floors skip the cross-check
 --     door = { open, ok, t },        -- last door_state from the cab and when it arrived
 --     inspect, inspectUp, inspectDown, firefighter = bool,
 --     blocked = bool,                -- a player stands in the doorway of the floor the car is at
 --   } },
 --   events = { { type = "call", car, floor } | { type = "door", car, cmd } | { type = "alarm_button", car }
---            | { type = "keycard", car } | { type = "reset", car } },
+--            | { type = "keycard", car } | { type = "hall", floor, dir } | { type = "reset", car } },
 -- }
 -- outputs = {
 --   cars = { A = { rpm, release, doorOpen, landing = { [floor] = bool } } },
---   hallUpLit, hallDownLit = { [floor] = bool },
 --   messages = { protocol messages to send to the cabs (chime, alarm, music) },
 -- }
 local motion = require "motion"
@@ -45,10 +43,13 @@ function E.new(cfg)
   self.hall = { up = {}, down = {} } -- [floor] = car name, false (waiting for a car) or nil
   self.fireLatched = false
   self.lockdown = false
-  self.order = cfg.carOrder or { "A", "B" }
+  -- only the cars that have a config entry (car B isn't built yet)
+  self.order = {}
+  for _, n in ipairs(cfg.carOrder or { "A", "B" }) do
+    if cfg.cars and cfg.cars[n] then self.order[#self.order + 1] = n end
+  end
   self.cars = {}
   self.now = nil
-  self.prev = { hallUp = {}, hallDown = {} }
   self.messages = {}
   for _, name in ipairs(self.order) do
     local cc = cfg.cars and cfg.cars[name] or {}
@@ -67,8 +68,6 @@ function E.new(cfg)
   end
   return self
 end
-
------------------------------------------------------------------------- helpers
 
 function E:floorIndex(f)
   if type(f) == "number" then return (f >= 1 and f <= self.n) and math.floor(f) or nil end
@@ -107,8 +106,6 @@ local function latch(self, c, reason)
   c.target = nil
 end
 E.latch = latch
-
------------------------------------------------------------------------- inputs
 
 local function trimHistory(list, before)
   while #list > 0 and list[1].t < before do table.remove(list, 1) end
@@ -149,8 +146,6 @@ function E:updateDoorReading(c, ci)
   if known then c.unknownSince = nil
   elseif not c.unknownSince then c.unknownSince = self.now end
 end
-
------------------------------------------------------------------------- safety
 
 function E:safety(c, ci)
   local now, sf, p = self.now, self.cfg.safety, self.cfg.motion
@@ -193,8 +188,6 @@ function E:safety(c, ci)
   end
 end
 
------------------------------------------------------------------------- events
-
 function E:carCall(c, i)
   if not i then return end
   local mode = c.mode
@@ -215,6 +208,11 @@ end
 
 function E:handleEvent(ev)
   if type(ev) ~= "table" then return end
+  if ev.type == "hall" then
+    local i = self:floorIndex(ev.floor)
+    if i and (ev.dir == "up" or ev.dir == "down") then self:hallCall(i, ev.dir) end
+    return
+  end
   if ev.type == "reset" and ev.car == nil then
     for _, n in ipairs(self.order) do self:handleEvent({ type = "reset", car = n }) end
     return
@@ -254,8 +252,6 @@ function E:hallCall(i, d)
   end
   if self.hall[d][i] == nil then self.hall[d][i] = false end
 end
-
------------------------------------------------------------------------- fire and lockdown
 
 function E:groupInputs(inp)
   -- fire Phase I: recall on the first signal, stay out of service until the alarm clears and the key is turned
@@ -304,8 +300,6 @@ function E:groupInputs(inp)
   end
 end
 
------------------------------------------------------------------------- mode
-
 function E:modeOf(c, ci)
   if c.latched then return "emergency" end
   if ci.inspect then return "inspection" end
@@ -325,8 +319,6 @@ function E:faultOf(c)
   if c.doorStuck then return "Door will not open" end
   return nil
 end
-
------------------------------------------------------------------------- doors
 
 local function doorTo(self, c, state)
   local d = c.door
@@ -421,8 +413,6 @@ local function doorsShut(c)
   return c.door.state == "closed" and c.doorReadClosed
 end
 
------------------------------------------------------------------------- motion
-
 local function hold(self, c)
   c.rpm, c.release, c.moving, c.vcmd = 0, false, false, 0
   c.mot.v = 0
@@ -483,24 +473,24 @@ function E:nearestStop(c)
   return best
 end
 
------------------------------------------------------------------------- arrival
+-- Which way car c leaves floor f after stopping there, coming in going td.
+function E:leaveDir(c, f, td)
+  local up, down = self.hall.up[f] == c.name, self.hall.down[f] == c.name
+  local above, below = dispatch.stopsBeyond(self, c, f, "up"), dispatch.stopsBeyond(self, c, f, "down")
+  if td == "up" then
+    if above or up then return "up" elseif down or below then return "down" end
+  elseif td == "down" then
+    if below or down then return "down" elseif up or above then return "up" end
+  else
+    if up then return "up" elseif down then return "down" elseif above then return "up" elseif below then return "down" end
+  end
+  return nil
+end
 
 function E:arrive(c, f)
   local td = c.dir
   c.calls[f] = nil
-  local nd
-  local up, down = self.hall.up[f] == c.name, self.hall.down[f] == c.name
-  if td == "up" then
-    if dispatch.stopsBeyond(self, c, f, "up") or up then nd = "up"
-    elseif down or dispatch.stopsBeyond(self, c, f, "down") then nd = "down" end
-  elseif td == "down" then
-    if dispatch.stopsBeyond(self, c, f, "down") or down then nd = "down"
-    elseif up or dispatch.stopsBeyond(self, c, f, "up") then nd = "up" end
-  else
-    if up then nd = "up" elseif down then nd = "down"
-    elseif dispatch.stopsBeyond(self, c, f, "up") then nd = "up"
-    elseif dispatch.stopsBeyond(self, c, f, "down") then nd = "down" end
-  end
+  local nd = self:leaveDir(c, f, td)
   if nd == "up" then
     if self.hall.up[f] ~= nil then self.hall.up[f] = nil end
   elseif nd == "down" then
@@ -524,8 +514,6 @@ function E:chime(c, count)
     c.duckUntil = self.now + self.cfg.timing.chimeDuck
   end
 end
-
------------------------------------------------------------------------- per-car run
 
 -- A moving car keeps the stop it is slowing down for: the next-stop search only looks beyond the stopping
 -- distance, so without this the target would slip past as the car closes in. A new stop replaces it only when it
@@ -633,8 +621,6 @@ function E:runCar(c, ci, dt)
   end
 end
 
------------------------------------------------------------------------- step
-
 function E:step(now, inp)
   inp = inp or {}
   local dt = self.now and math.max(0, now - self.now) or 0
@@ -664,16 +650,6 @@ function E:step(now, inp)
   end
 
   for _, ev in ipairs(inp.events or {}) do self:handleEvent(ev) end
-
-  -- hall buttons (rising edge)
-  for _, d in ipairs({ "up", "down" }) do
-    local key = d == "up" and "hallUp" or "hallDown"
-    local cur, prev = inp[key] or {}, self.prev[key]
-    for i = 1, self.n do
-      if cur[i] and not prev[i] then self:hallCall(i, d) end
-      prev[i] = cur[i] and true or false
-    end
-  end
 
   for _, name in ipairs(self.order) do
     local c, ci = self.cars[name], (inp.cars and inp.cars[name]) or {}
@@ -716,7 +692,7 @@ function E:step(now, inp)
 end
 
 function E:outputs()
-  local out = { cars = {}, hallUpLit = {}, hallDownLit = {}, messages = self.messages }
+  local out = { cars = {}, messages = self.messages }
   for _, name in ipairs(self.order) do
     local c = self.cars[name]
     local open = c.door.state == "opening" or c.door.state == "open"
@@ -724,14 +700,8 @@ function E:outputs()
     if open and c.atFloor then landing[c.atFloor] = true end
     out.cars[name] = { rpm = c.rpm, release = c.release, doorOpen = open, landing = landing }
   end
-  for i = 1, self.n do
-    out.hallUpLit[i] = self.hall.up[i] ~= nil
-    out.hallDownLit[i] = self.hall.down[i] ~= nil
-  end
   return out
 end
-
------------------------------------------------------------------------- views (for the cab, panel and indicators)
 
 local MESSAGES = {
   inspection = "Inspection",
@@ -780,25 +750,33 @@ function E:panelState(name)
   }
 end
 
--- What the landing indicator above floor i of car `name`'s shaft shows.
--- kind: "floor" (text = floor name, arrow = travel dir, lantern = arrival arrow), "out", "fire", "maint"
-function E:indicator(name, i)
+-- The `landing` message for floor i of car `name`'s shaft (PROTOCOL.md).
+function E:landingState(name, i)
   local c = self.cars[name]
-  local m = c.mode
+  local m = c.mode or "normal"
+  local out
   if m == "lockdown_trapped" or (m == "out_of_order" and c.lock) then
-    if not self.lab[i] then return { kind = "out", text = "Out of Order" } end
-  elseif m == "out_of_order" or m == "emergency" then
-    return { kind = "out", text = "Out of Order" }
-  elseif m == "inspection" then
-    return { kind = "maint", text = "Maintenance" }
-  elseif m == "fire_recall" or m == "fire_hold" or m == "firefighter" then
-    return { kind = "fire", text = "Fire Service", floor = c.nearest and self.floors[c.nearest] }
+    out = not self.lab[i] -- L1/L2 keep showing the car: false hope
+  else
+    out = m == "out_of_order" or m == "emergency"
   end
-  local arrow
-  if c.moving and (c.vcmd or 0) ~= 0 then arrow = c.vcmd > 0 and "up" or "down" end
+  local dir
+  if c.moving and (c.vcmd or 0) ~= 0 then dir = c.vcmd > 0 and "up" or "down" end
   local lantern
-  if c.atFloor == i and c.door.state ~= "closed" and not c.lock then lantern = c.lantern end
-  return { kind = "floor", text = c.nearest and self.floors[c.nearest] or "--", arrow = arrow, lantern = lantern }
+  if m == "normal" and not c.lock then
+    if c.atFloor == i and c.door.state ~= "closed" then
+      lantern = c.lantern
+    elseif c.moving and c.target == i and math.abs(c.stops[i] - c.y) < 3 then
+      lantern = self:leaveDir(c, i, dir)
+    end
+  end
+  return {
+    type = "landing", floor = self.floors[i], car = name,
+    carFloor = c.nearest and self.floors[c.nearest] or nil,
+    dir = dir, doors = c.door.state, lantern = lantern,
+    up = self.hall.up[i] ~= nil, down = self.hall.down[i] ~= nil,
+    mode = m, outOfOrder = out,
+  }
 end
 
 -- The floor whose doorway the player detector should watch for this car (nil = none).

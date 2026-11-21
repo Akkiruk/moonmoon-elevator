@@ -19,7 +19,7 @@ ccunit.test("sensor fault (ok = false): the car refuses to move", function()
   ccunit.truthy(neverMoves(w, "A", 20), "brake never released")
   ccunit.eq(w:mode("A"), "out_of_order")
   ccunit.eq(w:state("A").reason, "Door sensor fault")
-  ccunit.eq(w.ctl:indicator("A", 6).text, "Out of Order")
+  ccunit.eq(w:landing("A", "G").outOfOrder, true)
   -- sensor back: it carries on
   w.plant.cars.A.doorSensor = "ok"
   ccunit.truthy(w:arriveOpen("A", "4", 40), "goes once the sensor works")

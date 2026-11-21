@@ -1,4 +1,4 @@
--- Drawing: the hub control panel (the monitor at the top of the hoistway) and the landing indicators.
+-- The hub control panel: the monitor at the top of the hoistway.
 local P = {}
 
 local MODE_COLOUR = {
@@ -111,45 +111,6 @@ function P.drawPanel(m, ctl, extra)
   end
   m.setBackgroundColor(colors.black)
   return targets
-end
-
-local LANTERN = {
-  up = { "  #  ", " ### ", "#####", " ### ", " ### " },
-  down = { " ### ", " ### ", "#####", " ### ", "  #  " },
-}
-
--- A landing indicator (2x1 monitor, 18x5 at text scale 1).
-function P.drawIndicator(m, ind)
-  local w, h = m.getSize()
-  m.setBackgroundColor(colors.black)
-  m.clear()
-  if ind.kind == "floor" then
-    local lx = 2
-    if ind.lantern then
-      local shape, col = LANTERN[ind.lantern], ind.lantern == "up" and colors.lime or colors.red
-      for r = 1, math.min(h, 5) do
-        local row = shape[r]
-        for k = 1, #row do
-          if row:sub(k, k) == "#" then put(m, lx + k - 1, r, " ", colors.black, col) end
-        end
-      end
-      m.setBackgroundColor(colors.black)
-    end
-    local text = ind.text .. " " .. arrow(ind.arrow)
-    local x = math.max(lx + 6, math.floor((w - #text) / 2) + 4)
-    put(m, x, math.ceil(h / 2), text, colors.orange, colors.black)
-  else
-    local col = ind.kind == "fire" and colors.red or (ind.kind == "maint" and colors.yellow or colors.lightGray)
-    local text = ind.text
-    put(m, math.max(1, math.floor((w - #text) / 2) + 1), math.ceil(h / 2), text, col, colors.black)
-    if ind.floor then
-      put(m, math.max(1, math.floor((w - #ind.floor) / 2) + 1), math.ceil(h / 2) + 1, ind.floor, colors.white, colors.black)
-    end
-  end
-end
-
-function P.indicatorKey(ind)
-  return table.concat({ ind.kind, ind.text or "", ind.arrow or "", ind.lantern or "", ind.floor or "" }, "|")
 end
 
 return P

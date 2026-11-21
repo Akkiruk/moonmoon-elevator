@@ -19,8 +19,21 @@ Each car has a small panel computer behind a tall touch monitor on the cab's sid
 
 Door sensors (an AP block reader beside the car door, on the cab computer's network), the car door drive and the inspection controls on the cab top: see HARDWARE.md. The cab computer reports the door state as `{type="door_state", car, open=bool, ok=bool}` (ok=false means the reader failed or returned nonsense, which the hub treats as a sensor fault).
 
-## Hub -> landing indicators
-The monitors above each landing door hang on the hub's wired network, so the hub draws them directly (no messages): the car's floor and arrow, the arrival lantern (big up or down arrow plus chime), and "Out of Order", "Fire Service" or "Maintenance".
+## Landing computers (one per landing, design change 2026-11-20)
+Each landing has its own computer with two monitors: the indicator above the door and a touch call panel (up/down). The hub doesn't draw any landing monitor and doesn't read hall buttons from relays anymore. The landing doors themselves still open from the hub: a relay output per floor feeds a Redstone Link transmitter in the machine room, the receiver sits under the landing door.
+
+Landing -> hub:
+- `{type="hall", floor, dir}`: up or down touched. `floor` is the floor name. The hub ignores calls it won't take (fire service, L1/L2 in lockdown, up at the top, down at the bottom).
+- `{type="hello", role="landing", floor}` at boot. The hub answers with that floor's `landing` messages.
+
+Hub -> landing, one message per car per floor, on every change and at least every 2 s (broadcast):
+- `{type="landing", floor, car, carFloor, dir, doors, lantern, up, down, mode, outOfOrder}`
+  - `carFloor`: the floor the car is at or passing; `dir`: its travel direction while moving, else nil
+  - `doors`: the car's doors, as in `state`
+  - `lantern`: "up" or "down" while the car is stopped (or arriving) at this floor and will leave that way, else nil
+  - `up`, `down`: hall calls registered at this floor, to light the buttons
+  - `mode`: the car's mode, as in `state` (fire modes show Fire Service, inspection shows Maintenance)
+  - `outOfOrder`: show "Out of Order" instead of the car. In lockdown L1 and L2 keep showing the trapped car (false hope) and the other floors show Out of Order; an emergency or a fault shows it everywhere.
 
 ## Hub -> cab
 - `{type="state", car, ...}` on every change, and at least once a second:

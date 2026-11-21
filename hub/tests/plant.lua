@@ -12,7 +12,7 @@ function P.new(cfg, start)
   local index = {}
   for i, n in ipairs(cfg.floors) do index[n] = i end
   self.index = index
-  for _, name in ipairs(cfg.carOrder) do
+  for name in pairs(cfg.cars) do
     local stops = {}
     local cc = cfg.cars[name] or {}
     for i, t in ipairs(cc.thresholds or cfg.thresholds) do stops[i] = t + cfg.levelOffset end
@@ -32,6 +32,7 @@ function P.new(cfg, start)
       inspect = false, inspectUp = false, inspectDown = false, firefighter = false,
       log = {},                 -- { t, y, rpm, release } every step
       maxRpm = 0,
+      noContact = {},           -- floors with no contact wired
     }
   end
   self.fire, self.lockdown, self.fireReset = false, false, false
@@ -79,8 +80,8 @@ function P:inputs(now)
   for name, c in pairs(self.cars) do
     local contacts, wired = {}, {}
     for i, s in ipairs(c.stops) do
-      wired[i] = true
-      contacts[i] = (math.abs(c.y - s) <= 0.4 and not c.deadContacts[i]) or c.stuckContacts[i] or false
+      wired[i] = not c.noContact[i]
+      contacts[i] = wired[i] and ((math.abs(c.y - s) <= 0.4 and not c.deadContacts[i]) or c.stuckContacts[i]) or false
     end
     inp.cars[name] = {
       y = c.gpsY, yTime = c.gpsT,
