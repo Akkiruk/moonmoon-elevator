@@ -34,5 +34,5 @@ audio URL in the browser, but it is not a YouTube downloader.
 
 ### Tests
 
-`cd cab; craftos-mcp test` (uses `cab.world.json`: 1.21.1 / CC 1.120.2, speaker on the right, modem on top).
+`cd cab; craftos-mcp test --timeout 60` (uses `cab.world.json`: 1.21.1 / CC 1.120.2, speaker on the right, modem on top).
 The emulator has no network, so the http path is not tested; only local files and the fallback are.
