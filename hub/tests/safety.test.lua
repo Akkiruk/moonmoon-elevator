@@ -71,18 +71,38 @@ ccunit.test("a jammed car stalls instead of paying out rope", function()
   braked(w, "A")
 end, { timeout = 10 })
 
-ccunit.test("a stall is never reset automatically (retries pay out rope into slack)", function()
+ccunit.test("a jam on the way down stops before much slack builds up", function()
+  local w = H.world({ start = { A = "6", B = "G" } })
+  cruising(w, "A", "P3")
+  w:p("A").jammed = true
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 1.5), "within 1.5 s, not 8")
+  ccunit.eq(w:state("A").reason, "Stalled")
+  braked(w, "A")
+end, { timeout = 10 })
+
+ccunit.test("after a stall on the way down the retry reels up to the floor above", function()
+  local w = H.world({ start = { A = "6", B = "G" } })
+  cruising(w, "A", "P3")
+  w:p("A").jammed = true
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 2))
+  local y = w:y("A")
+  w:p("A").jammed = false
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "cleared itself")
+  ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
+  ccunit.truthy(w:y("A") > y, "went up, " .. y .. " -> " .. w:y("A"))
+end, { timeout = 15 })
+
+ccunit.test("after a stall on the way up the retry goes down", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   cruising(w, "A", "6")
   w:p("A").jammed = true
-  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 15))
-  w:run(90)
-  ccunit.eq(w:mode("A"), "emergency", "still stopped")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 12))
   ccunit.eq(w:state("A").reason, "Stalled")
+  local y = w:y("A")
   w:p("A").jammed = false
-  w:reset("A")
-  w:run(0.2)
-  ccunit.eq(w:mode("A"), "normal", "a person can reset it")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "cleared itself")
+  ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
+  ccunit.truthy(w:y("A") < y, "went down, " .. y .. " -> " .. w:y("A"))
 end, { timeout = 15 })
 
 ccunit.test("frozen GPS while moving is a stall", function()
@@ -143,20 +163,18 @@ ccunit.test("an emergency clears itself once the car stands still with a good po
     "levelled at a floor with the doors open")
 end, { timeout = 15 })
 
-ccunit.test("the fourth emergency in ten minutes waits for a person", function()
+ccunit.test("emergencies keep clearing themselves, each wait in a row twice as long", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   local function far() return w:y("A") > 116 and "G" or "6" end
   for n = 1, 3 do
     loseGpsOnTheWay(w, far())
-    ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "auto reset " .. n)
+    ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40 * 2 ^ (n - 1) + 10), "auto reset " .. n)
     ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
   end
   loseGpsOnTheWay(w, far())
-  w:run(90)
-  ccunit.eq(w:mode("A"), "emergency", "stays stopped")
-  w:reset("A")
-  w:run(0.2)
-  ccunit.eq(w:mode("A"), "normal", "a person can still reset it")
+  w:run(120)
+  ccunit.eq(w:mode("A"), "emergency", "fourth in a row: waits 160 s")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 60), "but still clears itself")
 end, { timeout = 30 })
 
 ccunit.test("GPS fails (nogps) while parked: out of service, back when it returns", function()

@@ -103,6 +103,8 @@ end
 local function latch(self, c, reason)
   if c.latched then return end
   c.latched, c.latchedAt, c.stillSince = reason, self.now, nil
+  local v = c.release and c.vcmd or 0
+  c.latchDir = v > 0 and 1 or (v < 0 and -1 or 0)
   c.calls = {}
   c.target = nil
 end
@@ -193,6 +195,16 @@ function E:safety(c, ci)
   else
     c.stallRef = nil
   end
+  -- Rope paid out that the car didn't follow down. A jam on the way down piles that slack up above the car, and it
+  -- falls the whole length when the jam lets go (26 blocks once), so stop long before the stall timer would.
+  local dts = c.slackT and (now - c.slackT) or 0
+  local fell = c.slackY and math.max(0, c.slackY - c.y) or 0
+  c.slackT, c.slackY = now, c.y
+  c.slack = math.max(0, (c.slack or 0) - vc * dts - fell) -- reeling in (vc > 0) takes it back up
+  if sf.slackLimit and c.slack > sf.slackLimit then
+    c.slack = 0
+    return latch(self, c, "Stalled")
+  end
   -- floor contacts against GPS
   local contacts, wired = ci.contacts or {}, ci.contactsWired
   for i, s in ipairs(c.stops) do
@@ -273,27 +285,30 @@ function E:handleEvent(ev)
     if c.latched then
       c.latched = nil
       c.samples, c.cmdHist, c.zone, c.vMeas, c.hold, c.stallRef = {}, {}, {}, nil, {}, nil
+      c.slack, c.slackT, c.slackY = 0, nil, nil
     end
   end
 end
 
 -- An emergency clears itself once the car has stood still with a good position for a while: nobody should have
--- to walk to the machine room after a rope hiccup. Too many in a row and it waits for a person after all.
+-- to walk to the machine room. It keeps trying, waiting twice as long after each try in a row (up to maxAfter).
+-- After a stall the retry heads the other way first: up out of a jam it was paying rope into, which also takes up
+-- the slack, and down (with the slack limit watching) out of one it was climbing into.
 function E:autoReset(c)
   local a = self.cfg.autoReset
   if not a or not c.latched then c.stillSince = nil; return end
-  -- a jam stays stopped: each retry paid out more rope into slack, and when the jam let go the car fell 26 blocks
-  if a.never and a.never[c.latched] then return end
   if not (c.posFresh and c.vMeas and math.abs(c.vMeas) < a.stillSpeed and not c.fault) then
     c.stillSince = nil
     return
   end
   c.stillSince = c.stillSince or self.now
-  if self.now - c.latchedAt < a.after or self.now - c.stillSince < a.still then return end
-  while #c.autoResets > 0 and c.autoResets[1] < self.now - a.window do table.remove(c.autoResets, 1) end
-  if #c.autoResets >= a.max then return end
+  while #c.autoResets > 0 and c.autoResets[1] < self.now - a.calmAfter do table.remove(c.autoResets, 1) end
+  local wait = math.min(a.maxAfter, a.after * 2 ^ #c.autoResets)
+  if self.now - c.latchedAt < wait or self.now - c.stillSince < a.still then return end
   c.autoResets[#c.autoResets + 1] = self.now
+  local pref = c.latched == "Stalled" and -(c.latchDir or 0) or 0
   self:handleEvent({ type = "reset", car = c.name })
+  c.rescuePref = pref ~= 0 and pref or nil
 end
 
 -- Phase II "on" from the cab panel: only in fire service with the car held at G, after a keycard swipe.
@@ -575,6 +590,7 @@ end
 -- The nearest floor ahead that the car can still stop at (or the nearest at all), respecting lockdown.
 function E:nearestStop(c)
   local dir = (c.vcmd or 0) > 0 and 1 or ((c.vcmd or 0) < 0 and -1 or 0)
+  if dir == 0 and not c.moving and c.rescuePref then dir = c.rescuePref end -- after a stall: the other way first
   local m = c.moving and motion.stopDistance(self.cfg.motion, c.vcmd or 0) or 0
   local best, bd
   for i, s in ipairs(c.stops) do
@@ -626,7 +642,7 @@ function E:arrive(c, f)
   local count = (nd == "up" and 1) or (nd == "down" and 2) or (td == "down" and 2) or 1
   if f == 1 then count = 1 elseif f == self.n then count = 2 end
   self:chime(c, count)
-  c.parked = f
+  c.parked, c.rescuePref = f, nil
   c.openReq = true
   c.target = nil
   c.door.presses = 0

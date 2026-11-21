@@ -138,7 +138,7 @@ C.motion = {
   levelTol = 0.0625,       -- level = within 1/16 of a block
   relevelStart = 0.12,     -- doors open and the car drifted this far off level: creep it back with the doors open
   relevelZone = 1.0,       -- ...but only this close to the floor
-  relevelTime = 10,        -- ...for this long at most
+  relevelTime = 6,         -- ...for this long at most (1 block at levelRpm; longer would pay out past slackLimit)
 }
 
 -- Safety checks.
@@ -154,6 +154,7 @@ C.safety = {
   stallSpeed = 0.5,        -- blocks/s commanded or more...
   stallDistance = 0.5,     -- ...without moving this far...
   stallTime = 8,           -- ...in this many seconds is a stall (jammed car, frozen GPS, rope paying out into slack)
+  slackLimit = 1.5,        -- blocks of rope paid out that the car didn't follow down: a stall right away
   speedWindow = 0.3,       -- seconds of GPS history to measure speed over
   cmdWindow = 0.6,         -- seconds of commanded speed history to compare against
   contactWindow = 1.0,     -- blocks: GPS within this of a stop while a contact should light
@@ -166,10 +167,10 @@ C.safety = {
 C.counterweightControl = { gain = 16, maxRpm = 96, deadband = 0.3, maxAge = 1 }
 
 -- An emergency stop clears itself (then the car levels at the nearest floor) once the car has stood still with a
--- good position for `still` seconds, no sooner than `after` seconds from the stop. More than `max` of those in
--- `window` seconds and it stays stopped until someone presses RESET on the hub panel. nil = always by hand.
--- `never`: reasons that always wait for a person.
-C.autoReset = { after = 20, still = 5, stillSpeed = 0.1, max = 3, window = 600, never = { Stalled = true } }
+-- good position for `still` seconds, no sooner than `after` seconds from the stop. It never gives up: each retry in
+-- a row waits twice as long, up to `maxAfter`, and `calmAfter` seconds without one starts over at `after`.
+-- RESET on the hub panel still works any time. nil = always by hand.
+C.autoReset = { after = 20, still = 5, stillSpeed = 0.1, maxAfter = 300, calmAfter = 600 }
 
 -- car A's doorways: two blocks wide (x 46-47), z -10 to -9, from the door's bottom block up two
 for i, t in ipairs(C.thresholds) do C.cars.A.doorways[i] = { 46, t, -10, 47, t + 1, -9 } end
