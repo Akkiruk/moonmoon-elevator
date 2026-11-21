@@ -1,0 +1,19 @@
+{
+  "version": { "mc": "1.21.1", "cc": "1.120.2" },
+  "advanced": true,
+  "cobaltSpeed": true,
+  "addons": ["create", "create-additions", "advanced-peripherals"],
+  "peripherals": [
+    { "name": "top", "type": "modem" },
+    { "name": "Create_CreativeMotor_0", "type": "Create_CreativeMotor", "generatedSpeed": 0 },
+    { "name": "Create_CreativeMotor_1", "type": "Create_CreativeMotor", "generatedSpeed": 0 },
+    { "name": "redstone_relay_0", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_5", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_10", "type": "redstone_relay", "inputs": {} },
+    { "name": "player_detector", "type": "playerDetector" }
+  ],
+  "monitors": [
+    { "name": "monitor_0", "blocksWide": 4, "blocksHigh": 3 },
+    { "name": "monitor_6", "blocksWide": 2, "blocksHigh": 1 }
+  ]
+}
