@@ -92,7 +92,8 @@ C.cars = {
 C.timing = {
   doorDwell = 60,          -- doors stay open this long (a hall call at the floor or door-open restarts it)
   reopenDwell = 4,         -- after a blocked close: wait this long, then try again
-  carCallDwell = nil,      -- set (e.g. 5) to shorten the dwell when a floor button is pressed; nil = keep the minute
+  stopDwell = 15,          -- with other floors still to serve, a stop lasts this long
+  carCallDwell = 3,        -- a floor button pressed in the cab closes the doors this soon, but not before stopDwell
   doorTravel = 1.5,        -- how long the sliding doors take to move after the door reports its new state
   doorTimeout = 6,         -- a door that does not report the commanded state in this long has failed
   doorStateMaxAge = 2.5,   -- door_state from the cab older than this counts as unknown (the cab sends 1/s)

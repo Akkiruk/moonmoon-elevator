@@ -137,8 +137,10 @@ function H:doorway(name, i)
   if not box then return nil end
   local det = self:wrap(self.cfg.detector)
   if not det or not det.getPlayersInCoords then return nil end
+  -- the box lists whole blocks, the detector's far corner is exclusive: +1 so a player standing in the last block
+  -- (it missed one at x = 47.0 in the test shaft) still counts
   local ok, list = pcall(det.getPlayersInCoords,
-    { x = box[1], y = box[2], z = box[3] }, { x = box[4], y = box[5], z = box[6] })
+    { x = box[1], y = box[2], z = box[3] }, { x = box[4] + 1, y = box[5] + 1, z = box[6] + 1 })
   if not ok or type(list) ~= "table" then return nil end
   return #list > 0
 end
