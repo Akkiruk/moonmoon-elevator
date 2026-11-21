@@ -58,7 +58,7 @@ Decision (owner, 2026-11-20): rebuild the mechanical parts in our test world. Ke
 6. A brake or clutch on the winch shaft holds the car.
 
 ## Plan
-1. Rebuild elevator A mechanically:
+1. (Done for the test copy, 2026-11-20: shaft B, printed from the fixed schematic at x=45. Full travel, it holds anywhere, all 11 stops by the threshold rule, and every floor has a contact that lights at its stop. Contacts were added at P2 (y90) and 5 (y120), and P3's moved from y86 to y85. Landing doors were removed for access and still need putting back.) Rebuild elevator A mechanically:
    - Re-seat the car and counterweight, check full travel bottom to top, and get floor contacts at all 11 landings.
    - Tidy the wiring, remove the battery, and hide the creative parts.
    - Done when: the computer can send the car to every floor and it stops level.
