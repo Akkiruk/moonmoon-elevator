@@ -6,6 +6,7 @@
 --
 -- Settings: mmlift.floor (or /floor.txt) is this landing's floor name. The monitors are told apart by size, the
 -- wide one is the indicator and the tall one the call station; mmlift.indicator / mmlift.callpanel force a name.
+-- mmlift.lamp is the side of the lamp block (default: every side with nothing attached).
 -- mmlift.hub is an optional hub id, mmlift.silence the seconds without a landing message before Out of Order (5).
 --
 -- Hub -> landing: {type="landing", floor, car, carFloor, dir, doors, lantern, up, down, mode, outOfOrder}
@@ -50,6 +51,7 @@ local function loadConfig()
   c.silence = settings.get("mmlift.silence") or c.silence
   c.indicator = c.indicator or settings.get("mmlift.indicator")
   c.callpanel = c.callpanel or settings.get("mmlift.callpanel")
+  c.lamp = c.lamp or settings.get("mmlift.lamp")
 end
 
 -- which calls this floor has: no Up on the top floor, no Down on the bottom one
@@ -264,7 +266,34 @@ local function wrapMonitors()
   end
 end
 
+-- Lamp block next to the computer: mmlift.lamp is a side (or a list of sides); unset means every side with
+-- nothing attached, so whatever lamp gets placed there lights up.
+function M.lampSides()
+  local l = M.config.lamp
+  if type(l) == "string" then return { l } elseif type(l) == "table" then return l end
+  local out = {}
+  for _, side in ipairs(redstone.getSides()) do
+    if not peripheral.isPresent(side) then out[#out + 1] = side end
+  end
+  return out
+end
+
+-- on while the car stands at this floor, or the lantern is lit for it; off when the hub is silent
+function M.lampOn()
+  local m = S.msg
+  if S.silent or not m or m.outOfOrder then return false end
+  return (tostring(m.carFloor) == M.config.floor and m.dir == nil) or (m.lantern ~= nil and m.lantern ~= false)
+end
+
+function M.updateLamp()
+  local on = M.lampOn()
+  for _, side in ipairs(M.lampSides()) do
+    if redstone.getOutput(side) ~= on then redstone.setOutput(side, on) end
+  end
+end
+
 function M.draw()
+  M.updateLamp()
   if M.ind then
     local c = M.renderIndicator(M.ind.w, M.ind.h); M.indFrame = c; blit(M.ind.win, c)
   end

@@ -264,3 +264,41 @@ ccunit.test("a speaker, when there is one, chimes once as the lantern lights", f
   peripheral.find = realFind
   ccunit.eq(notes, 2)
 end, { timeout = 10 })
+
+ccunit.test("lamp: on while the car stands here or the lantern is lit, off otherwise and when silent", function()
+  setup("3", 1)
+  landing.config.lamp = nil
+  with(function()
+    local function lamp() return redstone.getOutput("front"), redstone.getOutput("back"), redstone.getOutput("right") end
+    feed({ carFloor = "3", dir = nil })
+    ccunit.eq({ lamp() }, { true, true, true }, "car here, standing")
+    ccunit.eq(redstone.getOutput("top"), false, "not on a side with a modem")
+    ccunit.eq(redstone.getOutput("left"), false, "not on a side with a monitor")
+    ccunit.eq(redstone.getOutput("bottom"), false)
+    feed({ carFloor = "3", dir = "up" })
+    ccunit.eq({ lamp() }, { false, false, false }, "moving through")
+    feed({ carFloor = "5", dir = nil })
+    ccunit.eq({ lamp() }, { false, false, false }, "car elsewhere")
+    feed({ carFloor = "2", dir = "up", lantern = "up" })
+    ccunit.eq({ lamp() }, { true, true, true }, "lantern lit")
+    feed({ carFloor = "3", dir = nil, outOfOrder = true })
+    ccunit.eq({ lamp() }, { false, false, false }, "out of order")
+    feed({ carFloor = "3", dir = nil })
+    ccunit.eq({ lamp() }, { true, true, true })
+    sleep(1.6)
+    ccunit.eq({ lamp() }, { false, false, false }, "hub silent")
+  end)
+end, { timeout = 15 })
+
+ccunit.test("lamp side setting limits the output to that side", function()
+  setup("3")
+  landing.config.lamp = "right"
+  redstone.setOutput("front", false); redstone.setOutput("back", false)
+  with(function()
+    feed({ carFloor = "3", dir = nil })
+    ccunit.eq(redstone.getOutput("right"), true)
+    ccunit.eq(redstone.getOutput("front"), false)
+    ccunit.eq(redstone.getOutput("back"), false)
+  end)
+  landing.config.lamp = nil
+end, { timeout = 10 })
