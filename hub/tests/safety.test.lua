@@ -120,6 +120,23 @@ ccunit.test("after a stall on the way up to a hall call, it goes down first, the
   ccunit.truthy(w:arriveOpen("A", "5", 120), "then served the hall call")
 end, { timeout = 20 })
 
+ccunit.test("recovering down from an upward jam: unloading the stretched rope isn't counted as slack", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  cruising(w, "A", "6")
+  local p = w:p("A")
+  p.jammed = true
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 12))
+  local y = w:y("A")
+  -- the retry starts paying out; for the first 1.5 s that only unloads the stretch, the car doesn't move yet
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "cleared itself")
+  ccunit.truthy(w:runUntil(function() return p.release and p.rpm < 0 end, 10), "heading down")
+  w:run(1.5)
+  p.jammed = false
+  ccunit.eq(w:mode("A"), "normal", "no slack trip while the stretch unloads")
+  ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
+  ccunit.truthy(w:y("A") < y, "went down, " .. y .. " -> " .. w:y("A"))
+end, { timeout = 15 })
+
 ccunit.test("after a stall on the way up the retry goes down", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   cruising(w, "A", "6")

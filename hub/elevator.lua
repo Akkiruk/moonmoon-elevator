@@ -191,7 +191,16 @@ function E:safety(c, ci)
   if math.abs(vc) >= sf.stallSpeed then
     local r = c.stallRef
     if not r or math.abs(c.y - r.y) >= sf.stallDistance then c.stallRef = { t = now, y = c.y }
-    elseif now - r.t >= sf.stallTime then return latch(self, c, "Stalled") end
+    elseif now - r.t >= sf.stallTime then
+      if vc > 0 then
+        -- stuck going up: the winch has been stretching the rope against the jam. Paying that back out doesn't move
+        -- the car, so a recovery downward may pay out this much before it counts as slack. Capped at the 25%
+        -- stretch the winch allows, judging the rope by how far the car hangs below the top stop.
+        local rope = math.max(1, c.stops[#c.stops] + 5 - c.y)
+        c.stretchCredit = math.min(vc * (now - r.t), 0.25 * rope)
+      end
+      return latch(self, c, "Stalled")
+    end
   else
     c.stallRef = nil
   end
@@ -203,7 +212,12 @@ function E:safety(c, ci)
   -- it leaks away over slackWindow, so GPS lag and the winch running a little off its nominal speed don't add up
   -- over a long trip; a real jam at full speed still crosses slackLimit in well under a second
   local keep = sf.slackWindow and math.exp(-dts / sf.slackWindow) or 1
-  c.slack = math.max(0, (c.slack or 0) * keep - vc * dts - fell) -- reeling in (vc > 0) takes it back up
+  local out = -vc * dts
+  if out > 0 and (c.stretchCredit or 0) > 0 then
+    local use = math.min(out, c.stretchCredit)
+    c.stretchCredit, out = c.stretchCredit - use, out - use
+  end
+  c.slack = math.max(0, (c.slack or 0) * keep + out - fell) -- reeling in (vc > 0) takes it back up
   if sf.slackLimit and c.slack > sf.slackLimit then
     c.slack = 0
     return latch(self, c, "Stalled")
@@ -645,7 +659,7 @@ function E:arrive(c, f)
   local count = (nd == "up" and 1) or (nd == "down" and 2) or (td == "down" and 2) or 1
   if f == 1 then count = 1 elseif f == self.n then count = 2 end
   self:chime(c, count)
-  c.parked, c.rescuePref, c.rescueTo = f, nil, nil
+  c.parked, c.rescuePref, c.rescueTo, c.stretchCredit = f, nil, nil, nil
   c.openReq = true
   c.target = nil
   c.door.presses = 0
