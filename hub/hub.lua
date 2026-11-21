@@ -34,7 +34,8 @@ local function netLoop()
         door[msg.car] = { open = msg.open and true or false, ok = msg.ok and true or false, t = clock() }
       elseif t == "hello" then
         lastState[msg.car], lastPanel[msg.car] = nil, nil
-      elseif t == "call" or t == "door" or t == "alarm_button" or t == "keycard" then
+      elseif t == "call" or t == "door" or t == "alarm_button" or t == "keycard"
+        or t == "inspect" or t == "inspect_move" or t == "firefighter" then
         events[#events + 1] = msg
       end
     end

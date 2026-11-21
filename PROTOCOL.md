@@ -12,10 +12,16 @@ Each car has a small panel computer behind a tall touch monitor on the cab's sid
 - `{type="door", car, cmd}`: "open" or "close" pressed.
 - `{type="alarm_button", car}`: the alarm button was pressed.
 - `{type="keycard", car}`: a valid card was swiped (rising edge of the reader's redstone). The hub then allows L1/L2 for 10 seconds, unless lockdown is on.
+- `{type="firefighter", car, on}`: the Phase II toggle. The hub takes "on" only during fire service with the car held at G, and only within the keycard window (a swipe in the last 10 s). "off" is always taken.
 - `{type="hello", car, role="panel"}` at boot.
 
 ## Hub -> panel computer
-- `{type="panel", car, lit={floor=true,...}, keycard_window=bool, locked={floor=true,...}, mode}`: which buttons glow (registered stops), whether L1/L2 are temporarily allowed, which buttons are dead (lockdown, fire, inspection), and the mode, for the panel's banner. Sent on every change and at least once a second.
+- `{type="panel", car, lit={floor=true,...}, keycard_window=bool, locked={floor=true,...}, mode, firefighter=bool, fireKeyAllowed=bool}`: which buttons glow (registered stops), whether L1/L2 are temporarily allowed, which buttons are dead (lockdown, fire, inspection), the mode for the panel's banner, whether Phase II is on, and whether an "on" would be taken right now (car held at G in fire service, keycard swiped). Sent on every change and at least once a second.
+
+## Roof inspection station -> hub
+A touch station on the car roof runs inspection over rednet (the relay inputs still work if a physical switch is wired, but the default config has none).
+- `{type="inspect", car, on}`: inspection on or off. Only applied once the car is stopped; switching on cancels its queue and hall calls.
+- `{type="inspect_move", car, dir}`: "up", "down" or "stop". The car moves at the inspection speed while the jog keeps coming: resend it every 0.3 s. If none arrives for 0.8 s the hub stops the car and brakes (dead-man). It never moves past the top or bottom stop, and only with the doors closed.
 
 Door sensors (an AP block reader beside the car door, on the cab computer's network), the car door drive and the inspection controls on the cab top: see HARDWARE.md. The cab computer reports the door state as `{type="door_state", car, open=bool, ok=bool}` (ok=false means the reader failed or returned nonsense, which the hub treats as a sensor fault).
 

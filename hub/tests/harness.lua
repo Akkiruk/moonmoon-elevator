@@ -74,6 +74,10 @@ function W:hall(floor, dir)
   self.events[#self.events + 1] = { type = "hall", floor = floor, dir = dir }
 end
 
+function W:inspect(car, on) self.events[#self.events + 1] = { type = "inspect", car = car, on = on } end
+function W:jog(car, dir) self.events[#self.events + 1] = { type = "inspect_move", car = car, dir = dir } end
+function W:fireKey(car, on) self.events[#self.events + 1] = { type = "firefighter", car = car, on = on } end
+
 function W:landing(car, floor) return self.ctl:landingState(car, self:fi(floor)) end
 
 function W:car(name) return self.ctl.cars[name] end

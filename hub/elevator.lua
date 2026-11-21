@@ -11,7 +11,8 @@
 --     blocked = bool,                -- a player stands in the doorway of the floor the car is at
 --   } },
 --   events = { { type = "call", car, floor } | { type = "door", car, cmd } | { type = "alarm_button", car }
---            | { type = "keycard", car } | { type = "hall", floor, dir } | { type = "reset", car } },
+--            | { type = "keycard", car } | { type = "hall", floor, dir } | { type = "reset", car }
+--            | { type = "inspect", car, on } | { type = "inspect_move", car, dir } | { type = "firefighter", car, on } },
 -- }
 -- outputs = {
 --   cars = { A = { rpm, release, doorOpen, landing = { [floor] = bool } } },
@@ -228,12 +229,25 @@ function E:handleEvent(ev)
     c.alarmUntil = math.max(c.alarmUntil, self.now + t.alarmButtonSeconds)
   elseif ev.type == "keycard" then
     if not self.lockdown then c.keycardUntil = self.now + t.keycardWindow end
+  elseif ev.type == "inspect" then
+    c.inspectWant = ev.on and true or false -- applied once the car is stopped
+    if not ev.on then c.jog = nil end
+  elseif ev.type == "inspect_move" then
+    if ev.dir == "up" or ev.dir == "down" then c.jog, c.jogAt = ev.dir, self.now else c.jog = nil end
+  elseif ev.type == "firefighter" then
+    if not ev.on then c.ffKey = false
+    elseif self:fireKeyAllowed(c) then c.ffKey = true end
   elseif ev.type == "reset" then
     if c.latched then
       c.latched = nil
       c.samples, c.cmdHist, c.zone, c.vMeas = {}, {}, {}, nil
     end
   end
+end
+
+-- Phase II "on" from the cab panel: only in fire service with the car held at G, after a keycard swipe.
+function E:fireKeyAllowed(c)
+  return c.fire == "hold" and self.now <= c.keycardUntil
 end
 
 function E:hallCall(i, d)
@@ -302,7 +316,7 @@ end
 
 function E:modeOf(c, ci)
   if c.latched then return "emergency" end
-  if ci.inspect then return "inspection" end
+  if ci.inspect or c.inspectOn then return "inspection" end
   if c.lock == "trapped" then return "lockdown_trapped" end
   if c.lock == "stopped" then return "out_of_order" end
   if c.fire == "firefighter" then return "firefighter" end
@@ -549,7 +563,10 @@ function E:runCar(c, ci, dt)
   if mode == "inspection" then
     c.target, c.calls = nil, {}
     self:doorStep(c, ci, "close")
-    local s = (ci.inspectUp and 1 or 0) - (ci.inspectDown and 1 or 0)
+    -- the roof station resends its jog every 0.3 s; nothing for jogTimeout and it stops (dead-man)
+    local jog = c.jog and self.now - c.jogAt <= self.cfg.timing.jogTimeout and c.jog
+    if not jog then c.jog = nil end
+    local s = ((ci.inspectUp or jog == "up") and 1 or 0) - ((ci.inspectDown or jog == "down") and 1 or 0)
     self:manualMove(c, s)
     return
   end
@@ -628,10 +645,12 @@ function E:step(now, inp)
   self.now = now
   self.messages = {}
   self:groupInputs(inp)
+  for _, ev in ipairs(inp.events or {}) do self:handleEvent(ev) end
 
   -- inputs per car
   for _, name in ipairs(self.order) do
     local c, ci = self.cars[name], (inp.cars and inp.cars[name]) or {}
+    if c.inspectWant ~= nil and not c.moving then c.inspectOn, c.inspectWant = c.inspectWant, nil end
     self:updatePosition(c, ci)
     self:updateDoorReading(c, ci)
     c.fault = self:faultOf(c)
@@ -641,15 +660,16 @@ function E:step(now, inp)
   -- Phase II: the firefighter key, in a car that is in fire service at the recall floor (or already in Phase II)
   for _, name in ipairs(self.order) do
     local c, ci = self.cars[name], (inp.cars and inp.cars[name]) or {}
-    if ci.firefighter and c.fire == "hold" then c.fire = "firefighter"; c.calls = {} end
-    if not ci.firefighter and c.fire == "firefighter" and not c.moving then
+    local key = ci.firefighter or c.ffKey
+    if key and c.fire == "hold" then c.fire = "firefighter"; c.calls = {} end
+    if not key and c.fire == "firefighter" and not c.moving then
       c.fire = self.fireLatched and "recall" or nil
       c.calls = {}
     end
+    if c.fire == nil then c.ffKey = false end
     c.mode = self:modeOf(c, ci)
   end
 
-  for _, ev in ipairs(inp.events or {}) do self:handleEvent(ev) end
 
   for _, name in ipairs(self.order) do
     local c, ci = self.cars[name], (inp.cars and inp.cars[name]) or {}
@@ -747,6 +767,8 @@ function E:panelState(name)
     type = "panel", car = name, lit = lit, locked = locked,
     keycard_window = (self.now or 0) < c.keycardUntil and not self.lockdown,
     mode = c.mode or "normal",
+    firefighter = c.mode == "firefighter",
+    fireKeyAllowed = self.now ~= nil and self:fireKeyAllowed(c),
   }
 end
 

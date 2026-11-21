@@ -5,14 +5,13 @@
   "addons": ["create", "create-additions", "advanced-peripherals"],
   "peripherals": [
     { "name": "top", "type": "modem" },
-    { "name": "Create_CreativeMotor_0", "type": "Create_CreativeMotor", "generatedSpeed": 0 },
+    { "name": "left", "type": "playerDetector" },
     { "name": "Create_CreativeMotor_1", "type": "Create_CreativeMotor", "generatedSpeed": 0 },
-    { "name": "redstone_relay_0", "type": "redstone_relay", "inputs": {} },
-    { "name": "redstone_relay_5", "type": "redstone_relay", "inputs": {} },
-    { "name": "redstone_relay_10", "type": "redstone_relay", "inputs": {} },
-    { "name": "player_detector", "type": "playerDetector" }
+    { "name": "redstone_relay_1", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_2", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_3", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_4", "type": "redstone_relay", "inputs": {} },
+    { "name": "redstone_relay_5", "type": "redstone_relay", "inputs": {} }
   ],
-  "monitors": [
-    { "name": "monitor_0", "blocksWide": 4, "blocksHigh": 3 }
-  ]
+  "monitors": [{ "name": "front", "blocksWide": 4, "blocksHigh": 3 }]
 }

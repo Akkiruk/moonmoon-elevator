@@ -30,51 +30,52 @@ C.carOrder = { "A" } -- add "B" once the second shaft is built; its entry below 
 
 -- Hub peripherals.
 C.modem = nil                    -- wireless modem side or name; nil = the first wireless modem found
-C.monitor = "monitor_0"          -- the control panel at the top of the hoistway
+C.monitor = "front"              -- the control panel at the top of the hoistway
 C.monitorScale = 0.5
-C.detector = "player_detector"   -- AP player detector for the doorway check (getPlayersInCoords)
+C.detector = "left"              -- AP player detector for the doorway check (getPlayersInCoords)
 
 -- Hub-wide inputs (Create Redstone Link receivers and the G lobby key switch, on relays).
-C.fireAlarm = S("redstone_relay_0", "top")      -- link: red dye + redstone torch
-C.lockdown  = S("redstone_relay_0", "bottom")   -- link: frequency to pick
-C.fireReset = S("redstone_relay_0", "left")     -- key switch at the G lobby
+C.fireAlarm = S("redstone_relay_1", "top")      -- link: red dye + redstone torch
+C.lockdown  = S("redstone_relay_1", "front")    -- link
+C.fireReset = S("redstone_relay_1", "back")     -- key switch at the G lobby
 
 -- Hall calls come from the landing computers over rednet (PROTOCOL.md), so there are no hall buttons here.
 
 -- Per car. A is Moon-Moon's original shaft; B is the mirror on its left (seen from inside the cab).
 C.cars = {
   A = {
-    motor = "Create_CreativeMotor_0",
-    motorSign = 1,                               -- +RPM moves the car up; -1 if a shaft is built the other way
-    brakeRelease = S("redstone_relay_5", "top"), -- on = brake off (a torch holds the brake when this is off)
-    doorOpen     = S("redstone_relay_5", "bottom"), -- link to the car door: on = open
-    inspect      = S("redstone_relay_5", "left"),   -- cab-top inspection switch (link)
-    inspectUp    = S("redstone_relay_5", "right"),  -- cab-top up button (link)
-    inspectDown  = S("redstone_relay_5", "front"),  -- cab-top down button (link)
-    firefighter  = S("redstone_relay_5", "back"),   -- firefighter key switch in the cab (link)
+    motor = "Create_CreativeMotor_1",
+    motorSign = 1,                                -- +RPM moves the car up; -1 if a shaft is built the other way
+    brakeRelease = S("redstone_relay_2", "left"), -- on = brake off (a torch holds the brake when this is off)
+    doorOpen     = S("redstone_relay_2", "right"), -- link to the car door: on = open
+    -- Inspection and the firefighter key come over rednet from the roof station and the cab panel. These relay
+    -- inputs still work if someone wires a physical switch instead: inspect, inspectUp, inspectDown, firefighter.
     -- Floor contacts are optional: GPS is the position. Any contact listed here is checked against GPS (passing
     -- its floor without it lighting, or it lighting with the car far away, is a fault); floors left out are not.
     -- e.g. contacts = { [1] = S("redstone_relay_6", "top"), [6] = S("redstone_relay_6", "back") },
     contacts = {},
     landingDoors = { -- feeds the Redstone Link transmitter for each landing door, on = open
-      S("redstone_relay_8", "top"), S("redstone_relay_8", "bottom"), S("redstone_relay_8", "left"),
-      S("redstone_relay_8", "right"), S("redstone_relay_8", "front"), S("redstone_relay_8", "back"),
-      S("redstone_relay_9", "top"), S("redstone_relay_9", "bottom"), S("redstone_relay_9", "left"),
-      S("redstone_relay_9", "right"), S("redstone_relay_9", "front"),
+      S("redstone_relay_3", "top"),   -- L1
+      S("redstone_relay_3", "right"), -- L2
+      S("redstone_relay_3", "left"),  -- P3
+      S("redstone_relay_3", "front"), -- P2
+      S("redstone_relay_4", "top"),   -- P1
+      S("redstone_relay_4", "right"), -- G
+      S("redstone_relay_4", "left"),  -- 2
+      S("redstone_relay_5", "top"),   -- 3
+      S("redstone_relay_5", "right"), -- 4
+      S("redstone_relay_5", "left"),  -- 5
+      S("redstone_relay_5", "back"),  -- 6
     },
-    -- The doorway box at each landing for the player detector: { x1, y1, z1, x2, y2, z2 } in world coordinates.
-    -- nil = no obstruction check at that landing.
+    -- The doorway box at each landing for the player detector: { x1, y1, z1, x2, y2, z2 } in world coordinates,
+    -- filled in below from the thresholds (the door's bottom block). nil = no obstruction check there.
     doorways = {},
   },
   B = {
-    motor = "Create_CreativeMotor_1",
+    motor = "Create_CreativeMotor_2",
     motorSign = 1,
     brakeRelease = S("redstone_relay_10", "top"),
     doorOpen     = S("redstone_relay_10", "bottom"),
-    inspect      = S("redstone_relay_10", "left"),
-    inspectUp    = S("redstone_relay_10", "right"),
-    inspectDown  = S("redstone_relay_10", "front"),
-    firefighter  = S("redstone_relay_10", "back"),
     contacts = {},
     landingDoors = {
       S("redstone_relay_13", "top"), S("redstone_relay_13", "bottom"), S("redstone_relay_13", "left"),
@@ -98,7 +99,8 @@ C.timing = {
   doorFaultAfter = 1.0,    -- unknown door state for this long = sensor fault
   posMaxAge = 0.5,         -- a car position older than this counts as lost (PROTOCOL.md)
   brakeLift = 0.3,         -- time between releasing the brake and driving the motor
-  keycardWindow = 10,      -- L1/L2 allowed this long after a swipe
+  keycardWindow = 10,      -- L1/L2 (and the firefighter key) allowed this long after a swipe
+  jogTimeout = 0.8,        -- inspection jog stops if the roof station goes quiet this long
   strikes = 3,             -- failed closes, or door-open presses at one stop, before the alarm
   alarmSeconds = 10,       -- the strike alarm sounds this long
   alarmButtonSeconds = 3,  -- one press of the cab alarm button sounds it this long
@@ -132,5 +134,8 @@ C.safety = {
   contactMustLight = 0.25, -- passing within this of a stop without its contact lighting is a fault
   contactFar = 2.0,        -- a contact lit with GPS further than this from its stop is a fault
 }
+
+-- car A's doorways: two blocks wide (x 46-47), z -10 to -9, from the door's bottom block up two
+for i, t in ipairs(C.thresholds) do C.cars.A.doorways[i] = { 46, t, -10, 47, t + 1, -9 } end
 
 return C
