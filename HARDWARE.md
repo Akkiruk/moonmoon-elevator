@@ -12,9 +12,9 @@ How the software sees the build. Everything here was proven in game unless it sa
 | Car door | a double copycat sliding door in the 2x2 doorway at the front of the cab (car-local x1-2, y1-2, z0), stone-pillar look. Tested: power under one half opens both, removing it closes both. Replaces Moon-Moon's piston door, whose extension poles jammed the car against the shaft wall | hub | a Redstone Link receiver on the car powering the floor block under the door (untested link part). On = open; no signal = closed |
 | Car door sensors | OPEN QUESTION: a sliding door can't report its own state. Options: (a) an AP block reader next to the door, on a short cable to the cab computer, which reports over rednet; (b) trust the commanded state and use the hub's player detector for obstruction, which can't detect a stuck door | hub | to decide |
 | Landing doors | fresh copycat sliding doors (the saved ones are stale) | hub | relay output per landing, on = open |
-| Cab buttons | floor buttons (11), open, close, alarm, firefighter key switch; inspection switch and up/down on the cab top | hub | Redstone Links from the car, one frequency each |
-| Button lights | lamps behind the panel, one per floor button | hub | Redstone Links to the car |
-| Keycard reader | securitycraft:keycard_reader (outputs redstone on a valid card) | hub | Redstone Link from the car |
+| Cab button panel | a tall advanced touch monitor on the cab's right wall (in place of the blank circuit boards), run by a small panel computer hidden in the wall behind it (shaft side) with a wireless modem | panel computer, then hub | rednet (PROTOCOL.md): call, door, alarm_button; the hub answers with lit and locked buttons |
+| Inspection controls | switch plus up/down buttons on the cab top, and the firefighter key switch in the cab | hub | Redstone Links from the car |
+| Keycard reader | securitycraft:keycard_reader, already in the wall next to the panel computer | panel computer | redstone input on the rising edge, sent to the hub as keycard |
 | Doorway detector | one advancedperipherals:player_detector at the hub | hub | `getPlayersInCoords` over the doorway box of the floor the car is at. No wiring to the car |
 | Cab display | the existing 2x1 advanced monitor under the cab computer | cab | floor, direction, door state, messages ("Out of Order", fire, inspection) |
 | Plaque | a small monitor in the cab above the panel, on its own tiny computer | plaque computer | static text, drawn once |
@@ -22,7 +22,7 @@ How the software sees the build. Everything here was proven in game unless it sa
 
 ## Hub-wide
 - Hall buttons: an up and a down button at each landing (only one at the ends), relay inputs.
-- Hall lanterns and indicators: the landing monitors (already in the build), relay outputs or monitors over a wired network.
+- Landing indicators: the 2x1 monitors above each landing door (7 exist, 4 to add per shaft), on the hub's wired network with a cable hidden in the shaft wall. They show the car's floor and arrow, the arrival lantern, and Out of Order / Fire Service / Maintenance.
 - Fire alarm and lab lockdown: Create Redstone Link receivers on the hub relays. Frequencies: fire = red dye + redstone torch; lockdown = (to pick).
 - Fire service reset: a key switch at the G lobby, as a relay input.
 - Hub control panel: the monitor at the top of the hoistway.
