@@ -200,7 +200,10 @@ function E:safety(c, ci)
   local dts = c.slackT and (now - c.slackT) or 0
   local fell = c.slackY and math.max(0, c.slackY - c.y) or 0
   c.slackT, c.slackY = now, c.y
-  c.slack = math.max(0, (c.slack or 0) - vc * dts - fell) -- reeling in (vc > 0) takes it back up
+  -- it leaks away over slackWindow, so GPS lag and the winch running a little off its nominal speed don't add up
+  -- over a long trip; a real jam at full speed still crosses slackLimit in well under a second
+  local keep = sf.slackWindow and math.exp(-dts / sf.slackWindow) or 1
+  c.slack = math.max(0, (c.slack or 0) * keep - vc * dts - fell) -- reeling in (vc > 0) takes it back up
   if sf.slackLimit and c.slack > sf.slackLimit then
     c.slack = 0
     return latch(self, c, "Stalled")

@@ -80,6 +80,17 @@ ccunit.test("a jam on the way down stops before much slack builds up", function(
   braked(w, "A")
 end, { timeout = 10 })
 
+ccunit.test("a long descent with the winch a little slower than nominal is not a jam", function()
+  local w = H.world({ start = { A = "6", B = "G" } })
+  w:p("A").overspeed = 0.92 -- the car follows 8% slower than the hub thinks it pays out
+  w:keycard("A")
+  w:door("A", "close")
+  w:call("A", "L1")
+  ccunit.truthy(w:arriveOpen("A", "L1", 120), "made it, mode " .. w:mode("A"))
+  ccunit.eq(w:mode("A"), "normal")
+  w:p("A").overspeed = 1
+end, { timeout = 15 })
+
 ccunit.test("after a stall on the way down the retry reels up to the floor above", function()
   local w = H.world({ start = { A = "6", B = "G" } })
   cruising(w, "A", "P3")
