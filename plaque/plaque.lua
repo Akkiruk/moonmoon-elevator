@@ -85,6 +85,32 @@ function M.render(w, h, opts)
   for x = 1, w do put(x, 1, " ", nil, colors.yellow); put(x, h, " ", nil, colors.brown) end
   for y = 1, h do put(1, y, " ", nil, colors.yellow); put(w, y, " ", nil, colors.brown) end
   put(w, 1, " ", nil, colors.gray); put(1, h, " ", nil, colors.gray)
+
+  -- the 1x1 monitor in the cab is only 15x10, so a short plate: one item per line, no labels
+  if w < 30 then
+    local rows = {
+      { d.maker == M.defaults.maker and "MOONLIFT" or d.maker, colors.black },
+      { d.maker == M.defaults.maker and "ELEVATOR CO." or "", colors.black },
+      false,
+      { spaced("CAR " .. car), colors.black },
+      { d.persons .. " PERSONS", colors.black },
+      { d.load_kg .. "kg " .. d.speed:gsub(" ", ""), colors.black },
+      { d.serial, colors.brown },
+      { "FIRE: STAIRS", colors.red },
+    }
+    local y = math.max(2, math.floor((h - #rows) / 2) + 1)
+    for _, r in ipairs(rows) do
+      if r then
+        local s = r[1]:sub(1, w - 2)
+        text(1 + math.floor((w - #s) / 2), y, s, r[2])
+      else
+        for x = 3, w - 2 do put(x, y, " ", nil, colors.brown) end
+      end
+      y = y + 1
+    end
+    return c
+  end
+
   for _, p in ipairs({ { 3, 3 }, { w - 2, 3 }, { 3, h - 2 }, { w - 2, h - 2 } }) do
     put(p[1], p[2], "o", colors.brown) -- rivets
   end

@@ -50,3 +50,14 @@ ccunit.test("the program draws it on the monitor with the steel palette", functi
   local r1, g1, b1 = mon.getPaletteColour(colors.lightGray)
   ccunit.near(r1, 0xB4 / 255, 0.01)
 end, { timeout = 10 })
+
+ccunit.test("the 1x1 cab monitor gets a short plate that fits", function()
+  local c = plaque.render(15, 10, { car = "A" })
+  local l = lines(c)
+  for _, s in ipairs({ "MOONLIFT", "ELEVATOR CO.", "C A R   A", "21 PERSONS", "ML11-A-00417", "1600kg 2.5m/s", "FIRE: STAIRS" }) do
+    ccunit.contains(l, s)
+  end
+  -- nothing written over the border
+  for y = 1, 10 do ccunit.eq(l[y]:sub(1, 1), " "); ccunit.eq(l[y]:sub(15, 15), " ") end
+  ccunit.eq(l[1], (" "):rep(15)); ccunit.eq(l[10], (" "):rep(15))
+end)
