@@ -28,6 +28,14 @@ How the software sees the build. Everything here was proven in game unless it sa
 - Hub control panel: the monitor at the top of the hoistway.
 - GPS hosts: 4 computers with wireless modems, out of sight around the top of the shafts.
 
+## Shaft physics (learned the hard way, 2026-11-21)
+- **Rope length.** A rope winch won't pay out past `max_rope_range` in `config/simulated-server.toml` (default 40). L1 to 6 needs about 63 blocks of rope on the car and on the counterweight, so the server needs `max_rope_range = 80.0` or so. The test instance has 80. Without it the car can't get below about P3.
+- **Rails must be slippery.** Sable gives ice, packed ice and blue ice zero friction. Lapis or stone posts sitting in the car's notches held it so hard that it climbed at 0.1 blocks/s and rose on its own while braked. The guide posts at x 45 and 49 (z -5), the east wall the car touches (x 51, z -9 and -8) and the counterweight slot are packed ice now.
+- **Counterweight slot.** The counterweight is 3x1. It hangs in a 3x1 packed-ice slot (x 46-48, z -3). In the old 2-deep, open-sided slot it tipped, swung out under the ground line and jammed. Both ropes are independent: the counterweight doesn't help lift the car, it only moves opposite it because both winches share the drive.
+- **Hang the car under its rope.** The car's centre of mass sat 0.4 blocks off the rope, so it leaned on the landing wall. Four lead blocks under the floor (back and back-left) bring it to within 0.05.
+- **Top clearance.** Nothing on the car roof may stick up past the rope connector layer: the inspection station's modem on top of its computer stopped the car 3/16 short of floor 6. It's on the computer's side now.
+- **Going up is jerky on a long rope.** Reeling in 60 rope links lags, so leaving L1 the car can sit still for 5 s and then surge at 10+ blocks/s. Down trips are smooth. The safety checks are tuned for this (config.lua, C.safety); the ride itself isn't fixed yet.
+
 ## Link frequency plan
 Every link signal gets its own pair of frequency items, one table per car. Place each link with its frequency in the block data, then wrench the receivers. See REQUIREMENTS.md, "Hardware facts".
 
