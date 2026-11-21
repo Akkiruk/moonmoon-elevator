@@ -72,6 +72,15 @@ local function drawAll()
     m.setTextScale(cfg.monitorScale or 0.5)
     targets = panel.drawPanel(m, ctl, { problems = hw:problemList() })
   end
+  -- short readout on the computer's own screen, handy when standing in the machine room
+  local w = term.getSize()
+  for i, name in ipairs(ctl.order) do
+    local st, p = ctl:carState(name), pos[name]
+    local line = ("%s %-3s %-4s %-7s %-16s y=%s"):format(name, st.floor or "?", st.dir or "-", st.doors or "?",
+      st.mode or "?", p and p.y and ("%.2f"):format(p.y) or "none")
+    term.setCursorPos(1, 2 + 2 * i); term.clearLine(); term.write(line:sub(1, w))
+    term.setCursorPos(3, 3 + 2 * i); term.clearLine(); term.write((st.message or ""):sub(1, w - 2))
+  end
 end
 
 -- one landing message per car per floor; a landing that says hello gets its floor resent
@@ -117,6 +126,7 @@ end
 
 local function main()
   hw:safeStop()
+  term.clear(); term.setCursorPos(1, 1)
   if not hw:openModem() then print("hub: no wireless modem found; the cabs cannot reach the hub") end
   print("Moonlift hub running. Cars: " .. table.concat(ctl.order, ", "))
   parallel.waitForAny(netLoop, detectorLoop, touchLoop, controlLoop)

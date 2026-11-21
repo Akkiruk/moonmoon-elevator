@@ -204,6 +204,18 @@ local ARROW_BTN_DOWN = { "XXXXX", ".XXX.", "..X.." }
 -- the call station (1x2 monitor, 15x24 at scale 0.5)
 function M.stationLayout(w, h)
   local kinds = M.buttons()
+  -- a 1x1 monitor (15x10) only fits the buttons side by side
+  if h < 20 then
+    local bh = math.max(3, h - 4)
+    if #kinds == 2 then
+      local bw = math.floor((w - 1) / 2)
+      return { { id = "up", x1 = 1, x2 = bw, y1 = 3, y2 = 2 + bh },
+               { id = "down", x1 = w - bw + 1, x2 = w, y1 = 3, y2 = 2 + bh } }
+    end
+    local bw = math.min(11, w - 2)
+    local x1 = 1 + math.floor((w - bw) / 2)
+    return { { id = kinds[1], x1 = x1, x2 = x1 + bw - 1, y1 = 3, y2 = 2 + bh } }
+  end
   local bw, bh = math.min(11, w - 4), 7
   local x1 = 1 + math.floor((w - bw) / 2)
   local list = {}
@@ -250,18 +262,21 @@ end
 local function wrapMonitors()
   M.ind, M.sta = nil, nil
   local indName, staName = M.config.indicator, M.config.callpanel
+  local mons = {}
   for _, name in ipairs(peripheral.getNames()) do
     if peripheral.getType(name) == "monitor" then
       local mon = peripheral.wrap(name)
-      mon.setTextScale(1)
+      mon.setTextScale(0.5)
       local w, h = mon.getSize()
-      local kind = (name == indName) and "ind" or (name == staName) and "sta" or (w > h and "ind" or "sta")
-      if (kind == "ind" and not M.ind) or (kind == "sta" and not M.sta) then
-        mon.setTextScale(0.5)
-        local w2, h2 = mon.getSize()
-        local rec = { name = name, win = window.create(mon, 1, 1, w2, h2, true), w = w2, h = h2 }
-        if kind == "ind" then M.ind = rec else M.sta = rec end
-      end
+      mons[#mons + 1] = { name = name, win = window.create(mon, 1, 1, w, h, true), w = w, h = h }
+    end
+  end
+  -- named ones first, then the widest one is the indicator and the next one the call station
+  table.sort(mons, function(a, b) return a.w / a.h > b.w / b.h end)
+  for _, m in ipairs(mons) do if m.name == indName then M.ind = m elseif m.name == staName then M.sta = m end end
+  for _, m in ipairs(mons) do
+    if m ~= M.ind and m ~= M.sta then
+      if not M.ind and not indName then M.ind = m elseif not M.sta and not staName then M.sta = m end
     end
   end
 end

@@ -302,3 +302,15 @@ ccunit.test("lamp side setting limits the output to that side", function()
   end)
   landing.config.lamp = nil
 end, { timeout = 10 })
+
+ccunit.test("a 1x1 call panel puts the buttons side by side", function()
+  setup("G")
+  with(function() feed() end)
+  local l = landing.stationLayout(15, 10)
+  ccunit.eq(#l, 2)
+  ccunit.truthy(l[1].x2 < l[2].x1)
+  for _, b in ipairs(l) do ccunit.truthy(b.y1 >= 3 and b.y2 + 1 <= 10 and b.x1 >= 1 and b.x2 <= 15) end
+  setup("6")
+  with(function() feed() end)
+  ccunit.eq(#landing.stationLayout(15, 10), 1)
+end, { timeout = 10 })
