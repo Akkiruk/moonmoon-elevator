@@ -14,18 +14,26 @@ In the cab program: `parallel.waitForAny(music.run, display, rednetLoop)`, then 
 
 ### The track (fits on the cab computer)
 
-Plain DFPWM is 6000 bytes per second, so all of Sins (171.75 s) would be 1,030,524 bytes, over the 1,000,000-byte disk.
-The cab plays the first 150 s at full 48 kHz instead, with a 3 s fade at the end: `cab/tracks/sins.dfpwm`, 900,000
-bytes, about 100 KB left for the elevator code. The half-rate version it replaced (24 kHz, stretched back up in Lua)
-sounded muffled. `play` with no argument plays it. Half-rate files (`name.24k.dfpwm`, `name.16k.dfpwm`) still work.
+All of Sins (171.75 s) is in `cab/tracks/sins/`: 15 Ogg Vorbis parts of 12 s (mono, 48 kHz, about 39 kbit/s) and a
+`list.txt`, 896 KB in all, so it fits the 1,000,000-byte disk with the code and needs no config change. The pack's
+cc-audio-expand mod decodes each part in Java (`cc.audio.ogg`) and `speaker.playAudioEx` plays the 16-bit samples, so
+Lua does no work per sample. `play` with no argument plays it.
 
-Optional: any full-rate file or URL also plays (`play https://.../x.dfpwm`; the server needs http enabled for that host).
+Why not DFPWM: on this pack cc-audio-expand also takes over plain `speaker.playAudio` and streams the samples to the
+client as PCM, which drops a stream that runs dry and skips audio that arrives late. Decoding DFPWM in Lua on the
+single computer thread (computer_threads=1, shared with the hub and the GPS hosts) didn't keep up reliably, so the old
+file came out choppy, and 1-bit DFPWM adds hiss above the music's own treble. The whole song as one Ogg file would
+decode in one go and stall every computer for about half a second, hence the parts.
+
+Without cc-audio-expand a track folder doesn't open and `{fallback = path}` is used. DFPWM files and URLs still play
+(`play https://.../x.dfpwm`; the server needs http enabled for that host), as do half-rate files (`name.24k.dfpwm`).
 
 ### Making the track
 
 Sins is red_exp's `assets/red_exp/sounds/sins.ogg` (unzip it from the mod jar), converted with
-`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.dfpwm --seconds 150 --fade 3 --rate 48000` (ffmpeg with the dfpwm encoder; WinGet's has it). `--rate 24000` makes a half-rate file instead. Any other audio file works the same; for YouTube, run
-`yt-dlp -x <link>` yourself first (not installed here).
+`node tools/to-ogg.mjs sins.ogg cab/tracks/sins` (ffmpeg with libvorbis; WinGet's has it). `--kbps` sets the bitrate:
+47 is about the most that still fits. `tools/to-dfpwm.mjs` still makes DFPWM files. Any other audio file works the
+same; for YouTube, run `yt-dlp -x <link>` yourself first (not installed here).
 
 ### Two cars
 

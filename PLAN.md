@@ -81,7 +81,6 @@ Decision (owner, 2026-11-20): rebuild the mechanical parts in our test world. Ke
   - Fire reset is a key switch at the G lobby (our choice).
 - Still open:
   - Plaque text (brand, capacity, model). If he doesn't say, use sensible defaults.
-  - Music delivery: the full track (1.03 MB) is over the 1 MB computer disk. Raise the disk limit in the world's config (simplest) or host it at a URL.
   - Whether the cab speaker is heard from a physics sub-level. Test it once the car moves; fall back to landing speakers if not.
 
 ## Housekeeping
