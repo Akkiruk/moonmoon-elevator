@@ -10,6 +10,7 @@
 local dfpwm = require "cc.audio.dfpwm"
 
 local CHUNK = 4096 -- bytes of DFPWM per playAudio call = 32768 samples = 0.68 s
+local PIECE = 256  -- bytes decoded between yields
 local RETRY = 10 -- seconds to wait when neither the source nor the fallback opens
 
 -- A file named like sins.24k.dfpwm holds 24000 samples/s (16k works too); it is decoded and stretched back to
@@ -100,12 +101,18 @@ local function playOne(h, gen, factor)
     else
       local chunk = h.read(chunkBytes)
       if not chunk or #chunk == 0 then return true end -- end of the track
-      local buf = dec(chunk)
-      if factor > 1 then
+      -- a whole chunk took 0.4-0.5 s of CPU on the test server, long enough to hold up the cab's 10 Hz position
+      -- reports and trip the hub's lost-position check; small pieces with a yield in between keep it fair
+      local buf, n, worst = {}, 0, 0
+      for i = 1, #chunk, PIECE do
         local t0 = os.clock()
-        buf, prev = upsample(buf, factor, prev)
-        music.lastUpsample = os.clock() - t0 -- seconds of CPU for the last chunk, for the tests
+        local part = dec(chunk:sub(i, i + PIECE - 1))
+        if factor > 1 then part, prev = upsample(part, factor, prev) end
+        for j = 1, #part do n = n + 1; buf[n] = part[j] end
+        worst = math.max(worst, os.clock() - t0)
+        os.queueEvent("music_yield"); os.pullEvent("music_yield")
       end
+      music.lastUpsample = worst -- seconds of CPU for the slowest piece, for the tests
       while st.gen == gen and not st.ducked and not speaker.playAudio(buf, st.volume) do
         waitSpace()
       end
