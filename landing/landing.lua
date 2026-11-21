@@ -381,11 +381,18 @@ local function watchdog()
   end
 end
 
+-- Only redraw when something changed. Redrawing on every event (each rednet message the cab broadcasts, every
+-- watchdog tick) had the 11 landings eating most of the server's single CC thread.
 local function displayLoop()
   M.draw()
   while true do
-    os.pullEvent()
-    M.draw()
+    local ev = os.pullEvent()
+    if ev == "timer" and S.flash then
+      if os.clock() >= S.flash.untilT then S.flash = nil end
+      M.draw()
+    elseif ev == "landing_redraw" or ev == "monitor_resize" then
+      M.draw()
+    end
   end
 end
 

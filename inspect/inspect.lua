@@ -215,13 +215,17 @@ local function touchLoop()
   end
 end
 
--- resend the jog while it lasts
+-- resend the jog while it lasts; idle (no timers) when nobody is jogging
 local function moveLoop()
   while true do
-    sleep(0.02)
-    if S.jog and os.clock() >= S.nextMove then
-      S.nextMove = S.nextMove + M.config.keepalive
-      M.send({ type = "inspect_move", car = M.config.car, dir = S.jog })
+    if not S.jog then
+      os.pullEvent("inspect_redraw")
+    else
+      sleep(math.max(0.05, S.nextMove - os.clock()))
+      if S.jog and os.clock() >= S.nextMove then
+        S.nextMove = os.clock() + M.config.keepalive
+        M.send({ type = "inspect_move", car = M.config.car, dir = S.jog })
+      end
     end
   end
 end
@@ -249,8 +253,8 @@ end
 local function displayLoop()
   M.draw()
   while true do
-    os.pullEvent()
-    M.draw()
+    local ev = os.pullEvent()
+    if ev == "inspect_redraw" or ev == "monitor_resize" then M.draw() end
   end
 end
 

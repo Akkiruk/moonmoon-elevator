@@ -309,11 +309,17 @@ local function watchdog()
   end
 end
 
+-- redraw on changes only: the keycard poll and the watchdog fire timers many times a second
 local function displayLoop()
   M.draw()
   while true do
-    os.pullEvent()
-    M.draw()
+    local ev = os.pullEvent()
+    if ev == "timer" and S.flash then
+      if os.clock() >= S.flash.untilT then S.flash = nil end
+      M.draw()
+    elseif ev == "panel_redraw" or ev == "monitor_resize" then
+      M.draw()
+    end
   end
 end
 
