@@ -3,6 +3,7 @@
 -- fake them: GPS cannot be emulated for a moving car. Hub messages arrive as real rednet_message events.
 local cab = require "cab"
 local realDoorLevel = cab.doorLevel
+local realPos = cab.posSource
 local music = require "music"
 
 local log, sent, reader, fakeY
@@ -305,6 +306,37 @@ ccunit.test("positions: about 10 a second, y and t, err when GPS fails", functio
     ccunit.eq(last.y, nil)
     ccunit.eq(last.err, "nogps")
   end)
+end, { timeout = 10 })
+
+ccunit.test("learns the hub's id from its state messages, not from other cars' or other messages", function()
+  setup()
+  cab.hubId = nil
+  with(function()
+    os.queueEvent("rednet_message", 5, state({ car = "B" }), "mmlift")
+    os.queueEvent("rednet_message", 6, { type = "landing", car = "A", floor = "G" }, "mmlift")
+    sleep(0.1)
+    ccunit.eq(cab.hubId, nil)
+    feed(state({ floor = "G" }))
+    ccunit.eq(cab.hubId, 9)
+  end)
+  cab.hubId = nil
+end, { timeout = 10 })
+
+ccunit.test("a GPS fix that never resolves costs a short gap, not the hub's lost-position limit", function()
+  setup()
+  local realGps, n = gps.locate, 0
+  gps.locate = function(timeout)
+    n = n + 1
+    if n % 10 == 5 then sleep(timeout); return nil end -- ambiguous: locate sits out its timeout
+    return 1, fakeY, 1
+  end
+  cab.posSource = realPos
+  with(function() sleep(3) end)
+  gps.locate = realGps
+  local p, worst = ofType("pos"), 0
+  for i = 2, #p do worst = math.max(worst, p[i].at - p[i - 1].at) end
+  ccunit.truthy(#p >= 20, "count " .. #p)
+  ccunit.truthy(worst <= 0.3, "longest gap " .. worst .. " s")
 end, { timeout = 10 })
 
 ccunit.test("positions keep flowing while music and chimes play", function()

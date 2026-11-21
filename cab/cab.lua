@@ -24,6 +24,7 @@ M.config = {
   volume = 1,
   silence = 5,
   posPeriod = 0.1,
+  gpsTimeout = 0.15, -- host replies land within a tick; a fix that hasn't resolved by now won't
   helloEvery = 3,
   chimeGap = 0.6,
   doorSide = "left",
@@ -31,13 +32,16 @@ M.config = {
 
 -- The position source. Tests replace it. Returns the GPS height or nil.
 function M.posSource()
-  local _, y = gps.locate(0.4)
+  -- gps.locate waits out its whole timeout when a fix comes back ambiguous (about 1 in 150 on the test server), and
+  -- 0.4 s of that plus the send period went past the hub's 0.5 s lost-position limit
+  local _, y = gps.locate(M.config.gpsTimeout)
   return y
 end
 
 -- The way messages leave. Tests replace it to collect them.
+-- Once the hub has spoken, talk to it directly: 10 broadcasts a second woke every computer in range.
 function M.send(msg)
-  local hub = M.config.hub
+  local hub = M.config.hub or M.hubId
   pcall(function()
     if hub then rednet.send(hub, msg, PROTO) else rednet.broadcast(msg, PROTO) end
   end)
@@ -325,8 +329,12 @@ M.handle = handle
 -- rednet_message arrives as: event, sender, message, protocol
 local function netLoop()
   while true do
-    local _, _, msg, proto = os.pullEvent("rednet_message")
-    if proto == PROTO then handle(msg) end
+    local _, from, msg, proto = os.pullEvent("rednet_message")
+    if proto == PROTO then
+      -- only the hub sends our car's state; a replaced hub computer gets picked up the same way
+      if type(msg) == "table" and msg.type == "state" and msg.car == M.config.car then M.hubId = from end
+      handle(msg)
+    end
   end
 end
 
