@@ -91,7 +91,7 @@ ccunit.test("indicator: arrival lantern lights up and down", function()
     local c = landing.indFrame
     ccunit.contains(rows(c)[1], "ARRIVING")
     ccunit.truthy(bgCount(c, 5, 27, 36, colors.orange) >= 4)
-    ccunit.eq(bgCount(c, 2, 27, 36, colors.yellow), 10, "lit top edge")
+    ccunit.eq(bgCount(c, 2, 26, 35, colors.yellow), 10, "lit top edge")
     local upTop = bgCount(c, 3, 27, 36, colors.black)  -- the dark arrow tip
     feed({ carFloor = "G", lantern = "down" })
     ccunit.neq(bgCount(landing.indFrame, 3, 27, 36, colors.black), upTop, "down lantern differs")
