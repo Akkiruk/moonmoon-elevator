@@ -1,7 +1,7 @@
 -- Looping DFPWM player for the cab speaker.
 --
 --   local music = require "music"
---   music.play("/tracks/sins.24k.dfpwm")   -- or an http URL; { fallback = path } is optional
+--   music.play("/tracks/sins.dfpwm")   -- or an http URL; { fallback = path } is optional
 --   parallel.waitForAny(music.run, display, rednetLoop)
 --
 -- music.run() is the player loop: run it beside your other code, it only reacts to events.

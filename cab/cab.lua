@@ -8,7 +8,7 @@
 -- Settings (`set mmlift.car B` then reboot), or a first line in /car.txt:
 --   mmlift.car      "A" or "B" (the car name; also read from /car.txt)
 --   mmlift.hub      optional computer id of the hub; unset = broadcast
---   mmlift.track    music file or URL, default /tracks/sins.24k.dfpwm
+--   mmlift.track    music file or URL, default /tracks/sins.dfpwm
 --   mmlift.volume   music volume 0..3, default 1
 --   mmlift.doorSide side where the door-sensor computer's redstone arrives (default "left")
 --   mmlift.silence  seconds without a hub state before "Out of Order", default 5
@@ -20,7 +20,7 @@ local M = {}
 M.config = {
   car = nil,
   hub = nil,
-  track = "/tracks/sins.24k.dfpwm",
+  track = "/tracks/sins.dfpwm",
   volume = 1,
   silence = 5,
   posPeriod = 0.1,

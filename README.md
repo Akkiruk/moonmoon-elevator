@@ -14,18 +14,17 @@ In the cab program: `parallel.waitForAny(music.run, display, rednetLoop)`, then 
 
 ### The track (fits on the cab computer)
 
-Plain DFPWM is 6000 bytes per second, so Sins (171.75 s) would be 1,030,524 bytes: over the 1,000,000-byte disk.
-So the track is stored at half rate: `cab/tracks/sins.24k.dfpwm`, 515,262 bytes (about 3000 bytes per second, top
-frequency 12 kHz). The player sees "24k" in the file name, decodes, and stretches it back to 48 kHz by linear
-interpolation (`16k` names work too, 3x). That leaves about 480 KB for the elevator code. `play` with no argument plays it.
-Cost: about 8 ms of CPU per 0.68 s chunk at Cobalt speed (the emulator's slow-VM mode), roughly 1%.
+Plain DFPWM is 6000 bytes per second, so all of Sins (171.75 s) would be 1,030,524 bytes, over the 1,000,000-byte disk.
+The cab plays the first 150 s at full 48 kHz instead, with a 3 s fade at the end: `cab/tracks/sins.dfpwm`, 900,000
+bytes, about 100 KB left for the elevator code. The half-rate version it replaced (24 kHz, stretched back up in Lua)
+sounded muffled. `play` with no argument plays it. Half-rate files (`name.24k.dfpwm`, `name.16k.dfpwm`) still work.
 
 Optional: any full-rate file or URL also plays (`play https://.../x.dfpwm`; the server needs http enabled for that host).
 
 ### Making the track
 
 Sins is red_exp's `assets/red_exp/sounds/sins.ogg` (unzip it from the mod jar), converted with
-`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.24k.dfpwm --rate 24000` (ffmpeg with the dfpwm encoder; WinGet's has it). Use `--rate 24000` for the half-rate file (`--rate 16000` is smaller and duller). Any other audio file works the same; for YouTube, run
+`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.dfpwm --seconds 150 --fade 3 --rate 48000` (ffmpeg with the dfpwm encoder; WinGet's has it). `--rate 24000` makes a half-rate file instead. Any other audio file works the same; for YouTube, run
 `yt-dlp -x <link>` yourself first (not installed here).
 
 ### Two cars

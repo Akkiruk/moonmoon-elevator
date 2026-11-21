@@ -148,12 +148,12 @@ ccunit.test("half rate: upsampled to 32768 samples per chunk, loops, ducks, stop
   ccunit.eq(calls, atStop, "stopped")
 end, { timeout = 20 })
 
-ccunit.test("the real Sins file plays and one chunk's upsample is cheap", function()
+ccunit.test("the real Sins file plays at full rate and one chunk's decode is cheap", function()
   spy()
-  with(function() music.play("/tracks/sins.24k.dfpwm"); sleep(3) end)
+  with(function() music.play("/tracks/sins.dfpwm"); sleep(3) end)
   music.stop()
   ccunit.truthy(calls >= 2, "calls=" .. calls)
-  ccunit.eq(fs.getSize("/tracks/sins.24k.dfpwm") < 700000, true)
+  ccunit.truthy(fs.getSize("/tracks/sins.dfpwm") <= 900000, "fits in 900 KB, leaving room on the cab's 1 MB disk")
   ccunit.truthy(music.lastUpsample and music.lastUpsample < 0.5, "upsample took " .. tostring(music.lastUpsample) .. " s per chunk (CC kills a script after ~7 s without yielding)")
 end, { timeout = 10 })
 
@@ -161,7 +161,7 @@ ccunit.test("music never holds up a 10 Hz loop running beside it", function()
   spy()
   local worst, last = 0, nil
   parallel.waitForAny(music.run, function()
-    music.play("/tracks/sins.24k.dfpwm")
+    music.play("/tracks/sins.dfpwm")
     local stop = os.clock() + 4
     while os.clock() < stop do
       local now = os.clock()

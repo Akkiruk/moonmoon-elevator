@@ -2,7 +2,7 @@
 -- With no source it plays the full Sins track from the computer's own disk (515 KB at half rate).
 local music = require "music"
 
-local DEFAULT = "/tracks/sins.24k.dfpwm"
+local DEFAULT = "/tracks/sins.dfpwm"
 -- Optional: stream a full-rate file from a URL instead, e.g. `play https://.../sins.dfpwm`.
 
 local args = { ... }
