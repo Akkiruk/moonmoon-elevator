@@ -71,7 +71,7 @@ Decision (owner, 2026-11-20): rebuild the mechanical parts in our test world. Ke
 4. Wire elevator A in the world, install, and test end to end in game.
 5. Build elevator B as a mirror on the left. Test both cars together, including dispatch.
 6. Setup wizard: it learns the wiring in Moon-Moon's main world by walking him through presses and rides.
-7. Handoff: send the world back with a short guide on copying the computer files and running setup.
+7. Handoff (decided 2026-11-20): send the complete world file back. No setup wizard is needed. Before sending, the world must hold just the two finished elevators side by side at Moon-Moon's original spot (the fixed car, fresh landing doors, all the wiring hidden). Remove the test copies (the first print at x=20 and copy B at x=45), the probe computers, and the leftover motors and levers.
 
 ## Decisions
 - Settled 2026-11-20:
