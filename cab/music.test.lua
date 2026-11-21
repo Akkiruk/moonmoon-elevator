@@ -154,5 +154,5 @@ ccunit.test("the real Sins file plays and one chunk's upsample is cheap", functi
   music.stop()
   ccunit.truthy(calls >= 2, "calls=" .. calls)
   ccunit.eq(fs.getSize("/tracks/sins.24k.dfpwm") < 700000, true)
-  error("cpu per chunk: " .. tostring(music.lastUpsample) .. " s", 0)
+  ccunit.truthy(music.lastUpsample and music.lastUpsample < 0.5, "upsample took " .. tostring(music.lastUpsample) .. " s per chunk (CC kills a script after ~7 s without yielding)")
 end, { timeout = 10 })

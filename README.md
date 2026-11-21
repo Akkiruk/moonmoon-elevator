@@ -12,23 +12,20 @@ ComputerCraft controller for two Create Aeronautics elevators (CC:Tweaked 1.120.
 In the cab program: `parallel.waitForAny(music.run, display, rednetLoop)`, then `music.play(src, {fallback=path})`,
 `music.stop()`, `music.setVolume(0..3)`, `music.duck(true/false)` (silence during an alarm or chime, resumes after).
 
-### Delivering the track (numbers measured)
+### The track (fits on the cab computer)
 
-DFPWM is 6000 bytes per second. "Sins" is 171.75 s, so `cab/tracks/sins.dfpwm` is 1,030,524 bytes: over the
-1,000,000-byte computer disk limit, and the computer also needs room for the code. So:
+Plain DFPWM is 6000 bytes per second, so Sins (171.75 s) would be 1,030,524 bytes: over the 1,000,000-byte disk.
+So the track is stored at half rate: `cab/tracks/sins.24k.dfpwm`, 515,262 bytes (about 3000 bytes per second, top
+frequency 12 kHz). The player sees "24k" in the file name, decodes, and stretches it back to 48 kHz by linear
+interpolation (`16k` names work too, 3x). That leaves about 480 KB for the elevator code. `play` with no argument plays it.
+Cost: about 8 ms of CPU per 0.68 s chunk at Cobalt speed (the emulator's slow-VM mode), roughly 1%.
 
-- Host `cab/tracks/sins.dfpwm` somewhere with a raw URL (for example this repo once it is on GitHub:
-  `https://raw.githubusercontent.com/<owner>/<repo>/main/cab/tracks/sins.dfpwm`) and set `DEFAULT_URL` in `play.lua`.
-  The player reads the HTTP stream in 4 KB chunks, so memory stays small. The server must have http enabled for that
-  host (CC's default rules allow public hosts, and block local addresses).
-- `cab/tracks/sins-short.dfpwm` (60 s, 360,000 bytes, faded) goes on the computer as `/tracks/` and plays when the
-  URL cannot be reached.
+Optional: any full-rate file or URL also plays (`play https://.../x.dfpwm`; the server needs http enabled for that host).
 
 ### Making the track
 
 Sins is red_exp's `assets/red_exp/sounds/sins.ogg` (unzip it from the mod jar), converted with
-`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.dfpwm` (ffmpeg with the dfpwm encoder; WinGet's has it). The short
-clip is the same with `--seconds 60 --fade 2`. Any other audio file works the same; for YouTube, run
+`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.24k.dfpwm --rate 24000` (ffmpeg with the dfpwm encoder; WinGet's has it). Use `--rate 24000` for the half-rate file (`--rate 16000` is smaller and duller). Any other audio file works the same; for YouTube, run
 `yt-dlp -x <link>` yourself first (not installed here).
 
 ### Two cars

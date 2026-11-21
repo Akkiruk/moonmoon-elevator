@@ -1,6 +1,7 @@
 {
   "version": { "mc": "1.21.1", "cc": "1.120.2" },
   "advanced": true,
+  "cobaltSpeed": true,
   "peripherals": [
     { "name": "right", "type": "speaker" },
     { "name": "top", "type": "modem" }
