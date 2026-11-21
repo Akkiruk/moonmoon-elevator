@@ -157,6 +157,17 @@ ccunit.test("the real Sins file plays at full rate and one chunk's decode is che
   ccunit.truthy(music.lastUpsample and music.lastUpsample < 0.5, "upsample took " .. tostring(music.lastUpsample) .. " s per chunk (CC kills a script after ~7 s without yielding)")
 end, { timeout = 10 })
 
+ccunit.test("no speaker: the player waits instead of spinning, and a loop beside it keeps running", function()
+  peripheral.find = function(t) if t == "speaker" then return nil end return realFind(t) end
+  local ticks = 0
+  parallel.waitForAny(music.run, function()
+    music.play("/tracks/sins.dfpwm")
+    for _ = 1, 30 do sleep(0.1); ticks = ticks + 1 end
+  end)
+  music.stop()
+  ccunit.eq(ticks, 30, "the other loop got all its turns")
+end, { timeout = 15 })
+
 ccunit.test("music never holds up a 10 Hz loop running beside it", function()
   spy()
   local worst, last = 0, nil

@@ -143,10 +143,11 @@ function music.run()
           local ev, id = os.pullEvent()
         until (ev == "timer" and id == t) or (ev == "music_cmd" and st.gen ~= gen)
       else
-        local ok, err = pcall(playOne, h, gen, rateFactor(path))
+        local ok, done = pcall(playOne, h, gen, rateFactor(path))
         h.close()
-        if not ok then
-          -- e.g. the speaker was broken or removed: do not spin, and keep the player alive
+        -- an error, or no speaker at all (playOne returns false without the settings changing): wait before trying
+        -- again. Spinning here once got the cab killed for not yielding, and the car lost its position with it.
+        if not ok or (not done and st.gen == gen) then
           local t = os.startTimer(1)
           repeat local ev, id = os.pullEvent() until ev == "timer" and id == t
         end
