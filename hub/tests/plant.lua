@@ -24,7 +24,9 @@ function P.new(cfg, start)
       gpsY = round2(y), gpsT = 0, nextGps = 0,
       -- faults and test inputs
       cableBroken = false, overspeed = 1, brakeFails = false,
-      gps = "ok",               -- "ok", "nogps" (cab sends y = nil), "silent" (no messages at all)
+      jammed = false,           -- the car doesn't move whatever the winch does
+      kick = nil,               -- { v = extra blocks/s, untilT = plant time }: a rope surge or bounce
+      gps = "ok",               -- "ok", "nogps" (cab sends y = nil), "silent" (no messages), "frozen" (same y)
       deadContacts = {}, stuckContacts = {},
       doorSensor = "ok",        -- "ok", "fail" (ok = false), "silent" (no door_state messages)
       doorJam = false,          -- the door does not move
@@ -52,7 +54,10 @@ function P:step(dt, now, out)
     else
       local braked = not c.release and not c.brakeFails
       if braked then c.v = 0 else c.v = c.rpm * self.cfg.motion.blocksPerRev / 60 * c.overspeed end
+      if c.jammed then c.v = 0 end
     end
+    -- a rope surge or bounce: extra speed for a moment
+    if c.kick and now < c.kick.untilT then c.v = c.v + c.kick.v end
     c.y = c.y + c.v * dt
     local lo, hi = c.stops[1] - 2, c.stops[#c.stops] + 2
     if c.y < lo then c.y, c.v = lo, 0 elseif c.y > hi then c.y, c.v = hi, 0 end
@@ -67,7 +72,8 @@ function P:step(dt, now, out)
     if now >= c.nextGps then
       c.nextGps = now + 0.1
       if c.gps == "ok" then c.gpsY, c.gpsT = round2(c.y), now
-      elseif c.gps == "nogps" then c.gpsY, c.gpsT = nil, now end
+      elseif c.gps == "nogps" then c.gpsY, c.gpsT = nil, now
+      elseif c.gps == "frozen" then c.gpsT = now end
     end
     if now - c.doorReportT >= 0.25 and c.doorSensor ~= "silent" then c.doorReportT = now end
     c.log[#c.log + 1] = { t = now, y = c.y, rpm = c.rpm, release = c.release }

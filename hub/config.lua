@@ -125,9 +125,18 @@ C.motion = {
 }
 
 -- Safety checks.
+-- The rope stretches and bounces, so readings must stay out of line for a while before anything trips. The holds and
+-- margins come from logged trips in the test shaft: back-bounces up to 0.8 s, downward spikes 0.1 s, and the car
+-- sitting still for up to 5.4 s while the rope takes up its stretch leaving L1.
 C.safety = {
-  governorFactor = 1.25,   -- trip above cruise speed x this
-  speedMargin = 0.5,       -- blocks/s: faster than commanded by this = overspeed; falling faster = cable failure
+  governorFactor = 1.6,    -- going down faster than cruise speed x this...
+  governorHold = 0.5,      -- ...for this long is an overspeed
+  speedMargin = 1.5,       -- blocks/s: falling faster than commanded by this...
+  fallHold = 1.0,          -- ...for this long is a cable failure
+  parkedMargin = 0.5,      -- the same with the brake on (a braked car that drifts either way)
+  stallSpeed = 0.5,        -- blocks/s commanded or more...
+  stallDistance = 0.5,     -- ...without moving this far...
+  stallTime = 8,           -- ...in this many seconds is a stall (jammed car, frozen GPS, rope paying out into slack)
   speedWindow = 0.3,       -- seconds of GPS history to measure speed over
   cmdWindow = 0.6,         -- seconds of commanded speed history to compare against
   contactWindow = 1.0,     -- blocks: GPS within this of a stop while a contact should light

@@ -58,7 +58,7 @@ function E.new(cfg)
     for i, t in ipairs(cc.thresholds or cfg.thresholds) do stops[i] = t + (cfg.levelOffset or 3) end
     self.cars[name] = {
       name = name, stops = stops, calls = {},
-      samples = {}, cmdHist = {},
+      samples = {}, cmdHist = {}, hold = {},
       dir = nil, lantern = nil, target = nil,
       moving = false, release = false, rpm = 0, vcmd = 0, mot = { v = 0 },
       door = { state = "closing", since = 0, strikes = 0, presses = 0, dwellUntil = 0 },
@@ -148,21 +148,47 @@ function E:updateDoorReading(c, ci)
   elseif not c.unknownSince then c.unknownSince = self.now end
 end
 
+-- true once cond has held for secs without a break
+local function held(c, key, cond, now, secs)
+  if not cond then c.hold[key] = nil; return false end
+  c.hold[key] = c.hold[key] or now
+  return now - c.hold[key] >= secs
+end
+
 function E:safety(c, ci)
   local now, sf, p = self.now, self.cfg.safety, self.cfg.motion
   if c.latched then return end
   if c.moving and not c.posFresh then return latch(self, c, "Lost position") end
-  if not c.posFresh then return end
-  -- speed governor and cable failure, from GPS against what was commanded
+  if not c.posFresh then c.hold, c.stallRef = {}, nil; return end
+  -- speed governor and cable failure, from GPS against what was commanded. The rope is springy: the car lags,
+  -- surges and bounces back for up to about a second, so a reading has to stay out of line before it counts.
   if c.vMeas and c.yTime and now - c.yTime <= self.cfg.timing.posMaxAge then
     local lo, hi = 0, 0
     for _, h in ipairs(c.cmdHist) do
       if h.v < lo then lo = h.v end
       if h.v > hi then hi = h.v end
     end
+    local margin = c.release and sf.speedMargin or sf.parkedMargin
     local gov = motion.toSpeed(p, p.cruiseRpm) * sf.governorFactor
-    if c.vMeas < lo - sf.speedMargin then return latch(self, c, "Cable failure") end
-    if math.abs(c.vMeas) > gov or c.vMeas > hi + sf.speedMargin then return latch(self, c, "Overspeed") end
+    if held(c, "fall", c.vMeas < lo - margin, now, sf.fallHold) then return latch(self, c, "Cable failure") end
+    if held(c, "gov", c.vMeas < -gov, now, sf.governorHold) then
+      -- nothing was driving it down, so it's falling
+      return latch(self, c, lo < 0 and "Overspeed" or "Cable failure")
+    end
+    -- going up faster than the winch happens on a stretched rope and settles by itself, but climbing with nothing
+    -- driving it up (a slipping brake) never does
+    if held(c, "rise", hi <= 0 and c.vMeas > sf.parkedMargin, now, sf.fallHold) then
+      return latch(self, c, "Overspeed")
+    end
+  end
+  -- told to move but going nowhere: a jammed car, a frozen GPS, or rope paying out into slack
+  local vc = c.release and c.vcmd or 0
+  if math.abs(vc) >= sf.stallSpeed then
+    local r = c.stallRef
+    if not r or math.abs(c.y - r.y) >= sf.stallDistance then c.stallRef = { t = now, y = c.y }
+    elseif now - r.t >= sf.stallTime then return latch(self, c, "Stalled") end
+  else
+    c.stallRef = nil
   end
   -- floor contacts against GPS
   local contacts, wired = ci.contacts or {}, ci.contactsWired
@@ -240,7 +266,7 @@ function E:handleEvent(ev)
   elseif ev.type == "reset" then
     if c.latched then
       c.latched = nil
-      c.samples, c.cmdHist, c.zone, c.vMeas = {}, {}, {}, nil
+      c.samples, c.cmdHist, c.zone, c.vMeas, c.hold, c.stallRef = {}, {}, {}, nil, {}, nil
     end
   end
 end

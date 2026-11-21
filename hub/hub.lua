@@ -29,7 +29,8 @@ local function netLoop()
     elseif type(msg) == "table" and cfg.cars[msg.car] then
       local t = msg.type
       if t == "pos" then
-        pos[msg.car] = { y = type(msg.y) == "number" and msg.y or nil, t = clock() }
+        -- a single failed fix keeps the last good one; posMaxAge decides when it's too old
+        if type(msg.y) == "number" then pos[msg.car] = { y = msg.y, t = clock() } end
       elseif t == "door_state" then
         door[msg.car] = { open = msg.open and true or false, ok = msg.ok and true or false, t = clock() }
       elseif t == "hello" then

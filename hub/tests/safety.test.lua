@@ -12,10 +12,10 @@ local function braked(w, car)
   ccunit.eq(w:p(car).rpm, 0, "motor stopped")
 end
 
-ccunit.test("governor: faster than commanded trips emergency", function()
-  local w = H.world({ start = { A = "P3", B = "6" } })
-  cruising(w, "A", "6")
-  w:p("A").overspeed = 1.6
+ccunit.test("governor: running down too fast trips emergency", function()
+  local w = H.world({ start = { A = "6", B = "G" } })
+  cruising(w, "A", "P3")
+  w:p("A").overspeed = 1.8
   ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 1.5), "trips")
   braked(w, "A")
   w:p("A").overspeed = 1
@@ -38,7 +38,7 @@ ccunit.test("cable failure while cruising up: brake and emergency", function()
   local w = H.world({ start = { A = "P3", B = "6" } })
   cruising(w, "A", "6")
   w:p("A").cableBroken = true
-  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 1), "detected within a second")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 2), "detected within two seconds")
   braked(w, "A")
   ccunit.eq(w:state("A").reason, "Cable failure")
 end, { timeout = 10 })
@@ -46,7 +46,7 @@ end, { timeout = 10 })
 ccunit.test("cable failure while parked", function()
   local w = H.world({ start = { A = "4", B = "6" } })
   w:p("A").cableBroken = true
-  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 1))
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 1.5))
   braked(w, "A")
 end, { timeout = 10 })
 
@@ -56,9 +56,49 @@ ccunit.test("brake slips while parked (car rises): overspeed", function()
   w:p("A").overspeed = 0 -- nothing drives it; a slipping brake lets the counterweight pull it up
   w:p("A").cableBroken = false
   -- simulate the drift: push the car up by hand
-  for _ = 1, 20 do w:p("A").y = w:p("A").y + 0.05; w:step() end
+  for _ = 1, 40 do w:p("A").y = w:p("A").y + 0.05; w:step() end
   ccunit.eq(w:mode("A"), "emergency")
 end, { timeout = 10 })
+
+ccunit.test("a jammed car stalls instead of paying out rope", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  cruising(w, "A", "6")
+  w:p("A").jammed = true
+  w:run(6)
+  ccunit.eq(w:mode("A"), "normal", "a few seconds stuck is normal while the rope takes up its stretch")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 4))
+  ccunit.eq(w:state("A").reason, "Stalled")
+  braked(w, "A")
+end, { timeout = 10 })
+
+ccunit.test("frozen GPS while moving is a stall", function()
+  local w = H.world({ start = { A = "6", B = "G" } })
+  for i = 1, #w.cfg.floors do w:p("A").noContact[i] = true end -- as built: no floor contacts, GPS only
+  cruising(w, "A", "P3")
+  w:p("A").gps = "frozen"
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 10))
+  ccunit.eq(w:state("A").reason, "Stalled")
+  braked(w, "A")
+end, { timeout = 10 })
+
+ccunit.test("rope surges and bounces don't trip anything", function()
+  local w = H.world({ start = { A = "P3", B = "G" } })
+  cruising(w, "A", "6")
+  local p = w:p("A")
+  p.kick = { v = -5, untilT = w.plant.now + 0.6 }  -- springs back down for a moment
+  w:run(1.5)
+  p.kick = { v = 10, untilT = w.plant.now + 1.3 }  -- then surges up
+  w:run(2)
+  ccunit.eq(w:mode("A"), "normal")
+  ccunit.truthy(w:arriveOpen("A", "6", 60))
+  w:door("A", "close")
+  w:call("A", "P3")
+  ccunit.truthy(w:runUntil(function() return math.abs(w:p("A").rpm) == w.cfg.motion.cruiseRpm end, 20))
+  p.kick = { v = -3, untilT = w.plant.now + 0.3 }  -- a short spike going down
+  w:run(1)
+  ccunit.eq(w:mode("A"), "normal")
+  ccunit.truthy(w:arriveOpen("A", "P3", 60))
+end, { timeout = 15 })
 
 ccunit.test("lost GPS while moving: brake, emergency", function()
   local w = H.world({ start = { A = "G", B = "6" } })
