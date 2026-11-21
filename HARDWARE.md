@@ -9,8 +9,8 @@ How the software sees the build. Everything here was proven in game unless it sa
 | Brake | create_connected:brake on the car winch line, held on by a redstone torch | hub | relay output "release" (on = brake off). Fail-safe: no signal means braked |
 | Live height | the cab computer's gps.locate() | cab, then hub | rednet `{car, y, t}` about 10 times a second. Level when y = threshold top + 3.00 |
 | Floor contacts | create:redstone_contact at each landing, at threshold height | hub | relay inputs. Used as checkpoints and as a cross-check on GPS |
-| Car door drive | hidden creative motor -> gearshift -> piston on the car (untested) | hub | Redstone Links to the car: "door open" and "door close" |
-| Car door sensors | two contact pairs on the car: closed, fully open (untested) | hub | Redstone Links from the car. Neither or both for too long = sensor fault, so the car does not move |
+| Car door | a double copycat sliding door in the 2x2 doorway at the front of the cab (car-local x1-2, y1-2, z0), stone-pillar look. Tested: power under one half opens both, removing it closes both. Replaces Moon-Moon's piston door, whose extension poles jammed the car against the shaft wall | hub | a Redstone Link receiver on the car powering the floor block under the door (untested link part). On = open; no signal = closed |
+| Car door sensors | OPEN QUESTION: a sliding door can't report its own state. Options: (a) an AP block reader next to the door, on a short cable to the cab computer, which reports over rednet; (b) trust the commanded state and use the hub's player detector for obstruction, which can't detect a stuck door | hub | to decide |
 | Landing doors | fresh copycat sliding doors (the saved ones are stale) | hub | relay output per landing, on = open |
 | Cab buttons | floor buttons (11), open, close, alarm, firefighter key switch; inspection switch and up/down on the cab top | hub | Redstone Links from the car, one frequency each |
 | Button lights | lamps behind the panel, one per floor button | hub | Redstone Links to the car |
