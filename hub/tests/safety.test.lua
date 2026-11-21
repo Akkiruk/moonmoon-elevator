@@ -109,6 +109,42 @@ ccunit.test("lost GPS while moving: brake, emergency", function()
   ccunit.eq(w:state("A").reason, "Lost position")
 end, { timeout = 10 })
 
+local function loseGpsOnTheWay(w, to)
+  w:door("A", "close")
+  w:call("A", to)
+  ccunit.truthy(w:runUntil(function() return w:p("A").release and math.abs(w:p("A").rpm) >= 32 end, 40),
+    "moving to " .. to .. " from y " .. w:y("A") .. " mode " .. w:mode("A") .. " doors " .. w:doors("A"))
+  w:p("A").gps = "silent"
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 2), "tripped")
+  w:p("A").gps = "ok"
+end
+
+ccunit.test("an emergency clears itself once the car stands still with a good position, then it levels", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  loseGpsOnTheWay(w, "6")
+  w:run(15)
+  ccunit.eq(w:mode("A"), "emergency", "not straight away")
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 15), "cleared by itself")
+  ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 40),
+    "levelled at a floor with the doors open")
+end, { timeout = 15 })
+
+ccunit.test("the fourth emergency in ten minutes waits for a person", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  local function far() return w:y("A") > 116 and "G" or "6" end
+  for n = 1, 3 do
+    loseGpsOnTheWay(w, far())
+    ccunit.truthy(w:runUntil(function() return w:mode("A") == "normal" end, 40), "auto reset " .. n)
+    ccunit.truthy(w:runUntil(function() return w:still("A") and w:car("A").atFloor and w:doors("A") == "open" end, 60))
+  end
+  loseGpsOnTheWay(w, far())
+  w:run(90)
+  ccunit.eq(w:mode("A"), "emergency", "stays stopped")
+  w:reset("A")
+  w:run(0.2)
+  ccunit.eq(w:mode("A"), "normal", "a person can still reset it")
+end, { timeout = 30 })
+
 ccunit.test("GPS fails (nogps) while parked: out of service, back when it returns", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   w:p("A").gps = "nogps"

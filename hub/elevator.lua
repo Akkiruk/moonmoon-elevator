@@ -58,7 +58,7 @@ function E.new(cfg)
     for i, t in ipairs(cc.thresholds or cfg.thresholds) do stops[i] = t + (cfg.levelOffset or 3) end
     self.cars[name] = {
       name = name, stops = stops, calls = {},
-      samples = {}, cmdHist = {}, hold = {},
+      samples = {}, cmdHist = {}, hold = {}, autoResets = {},
       dir = nil, lantern = nil, target = nil,
       moving = false, release = false, rpm = 0, vcmd = 0, mot = { v = 0 },
       door = { state = "closing", since = 0, strikes = 0, presses = 0, dwellUntil = 0 },
@@ -102,7 +102,7 @@ end
 
 local function latch(self, c, reason)
   if c.latched then return end
-  c.latched = reason
+  c.latched, c.latchedAt, c.stillSince = reason, self.now, nil
   c.calls = {}
   c.target = nil
 end
@@ -272,6 +272,23 @@ function E:handleEvent(ev)
       c.samples, c.cmdHist, c.zone, c.vMeas, c.hold, c.stallRef = {}, {}, {}, nil, {}, nil
     end
   end
+end
+
+-- An emergency clears itself once the car has stood still with a good position for a while: nobody should have
+-- to walk to the machine room after a rope hiccup. Too many in a row and it waits for a person after all.
+function E:autoReset(c)
+  local a = self.cfg.autoReset
+  if not a or not c.latched then c.stillSince = nil; return end
+  if not (c.posFresh and c.vMeas and math.abs(c.vMeas) < a.stillSpeed and not c.fault) then
+    c.stillSince = nil
+    return
+  end
+  c.stillSince = c.stillSince or self.now
+  if self.now - c.latchedAt < a.after or self.now - c.stillSince < a.still then return end
+  while #c.autoResets > 0 and c.autoResets[1] < self.now - a.window do table.remove(c.autoResets, 1) end
+  if #c.autoResets >= a.max then return end
+  c.autoResets[#c.autoResets + 1] = self.now
+  self:handleEvent({ type = "reset", car = c.name })
 end
 
 -- Phase II "on" from the cab panel: only in fire service with the car held at G, after a keycard swipe.
@@ -705,6 +722,7 @@ function E:step(now, inp)
     self:updatePosition(c, ci)
     self:updateDoorReading(c, ci)
     c.fault = self:faultOf(c)
+    self:autoReset(c)
     c.mode = self:modeOf(c, ci)
   end
 
