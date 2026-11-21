@@ -135,7 +135,9 @@ function E:updatePosition(c, ci)
   -- where is it?
   local f, d = nearest(c)
   c.nearest = f
-  c.atFloor = (f and not c.moving and d <= self.cfg.motion.levelTol and c.posFresh) and f or nil
+  -- with the doors open the car stays "at" its floor while the rope lets it drift; relevel() brings it back
+  local tol = c.door.state ~= "closed" and (self.cfg.motion.relevelZone or 0) or 0
+  c.atFloor = (f and not c.moving and d <= math.max(self.cfg.motion.levelTol, tol) and c.posFresh) and f or nil
 end
 
 function E:updateDoorReading(c, ci)
@@ -517,6 +519,35 @@ function E:driveTo(c, i, dt)
   return false
 end
 
+-- A car standing at a floor with its doors open creeps back to level when the rope lets it drift, like a real lift
+-- relevelling. Only at levelRpm, only inside relevelZone (atFloor is nil further out) and for relevelTime at most.
+-- Returns true while it is handling the car.
+function E:relevel(c)
+  local p = self.cfg.motion
+  local f = c.atFloor
+  if not (p.relevelStart and f and c.posFresh and not c.moving) then
+    if c.relevelAt then hold(self, c); c.relevelAt = nil end
+    return false
+  end
+  local e = c.stops[f] - c.y
+  if not c.relevelAt then
+    if c.relevelGaveUp or math.abs(e) < p.relevelStart then return false end
+    c.relevelAt = self.now
+  end
+  if math.abs(e) <= p.stopTol or self.now - c.relevelAt > p.relevelTime then
+    -- a car that won't come back to level is left alone until the doors next close
+    if math.abs(e) > p.stopTol then c.relevelGaveUp = true end
+    hold(self, c)
+    c.relevelAt = nil
+    return true
+  end
+  if not c.release then c.release, c.releaseAt = true, self.now end
+  if self.now - c.releaseAt < self.cfg.timing.brakeLift then c.rpm = 0; return true end
+  c.rpm = (e > 0 and 1 or -1) * p.levelRpm
+  c.vcmd = motion.toSpeed(p, c.rpm)
+  return true
+end
+
 function E:manualMove(c, sign)
   local p = self.cfg.motion
   if sign == 0 or not doorsShut(c) or not c.posFresh then hold(self, c); return end
@@ -678,9 +709,10 @@ function E:runCar(c, ci, dt)
   -- normal service
   self:doorStep(c, ci, "auto")
   if c.door.state ~= "closed" then
-    if c.moving then hold(self, c) end
+    if not self:relevel(c) and c.moving then hold(self, c) end
     return
   end
+  c.relevelGaveUp = nil
   local tgt, d = self:commit(c, dispatch.nextTarget(self, c))
   if tgt and c.atFloor == tgt and not c.moving then
     c.dir = d or c.dir

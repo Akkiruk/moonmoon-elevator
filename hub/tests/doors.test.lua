@@ -103,6 +103,44 @@ ccunit.test("a floor button doesn't close on someone in the doorway", function()
   ccunit.truthy(w:arriveOpen("A", "4", 60))
 end, { timeout = 10 })
 
+ccunit.test("a parked car that drifts off level creeps back with the doors open", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  openAt(w, "A")
+  local p, stop = w:p("A"), w.plant:stop("A", "G")
+  p.y = stop + 0.45 -- the rope relaxes and lifts it
+  local wasClosed, minRpm = false, 0
+  ccunit.truthy(w:runUntil(function()
+    if w:doors("A") ~= "open" then wasClosed = true end
+    if p.release then minRpm = math.min(minRpm, p.rpm) end
+    return math.abs(w:y("A") - stop) <= 0.05 and not p.release
+  end, 10), "back to level, y " .. w:y("A"))
+  ccunit.eq(wasClosed, false, "doors stayed open")
+  ccunit.eq(minRpm, -w.cfg.motion.levelRpm, "at creep speed")
+end, { timeout = 10 })
+
+ccunit.test("a small wobble is left alone", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  openAt(w, "A")
+  local p = w:p("A")
+  p.y = w.plant:stop("A", "G") + 0.08
+  w:run(3)
+  ccunit.eq(p.release, false)
+end, { timeout = 10 })
+
+ccunit.test("a car that won't come back to level is left alone until the doors close", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  openAt(w, "A")
+  local p = w:p("A")
+  p.y = w.plant:stop("A", "G") + 0.45
+  p.jammed = true
+  w:run(12)
+  ccunit.eq(p.release, false, "gave up")
+  w:run(5)
+  ccunit.eq(p.release, false, "and stays given up")
+  ccunit.eq(w:doors("A"), "open")
+  p.jammed = false
+end, { timeout = 10 })
+
 ccunit.test("door-open while closing reopens", function()
   local w = H.world({ start = { A = "G", B = "6" } })
   openAt(w, "A")

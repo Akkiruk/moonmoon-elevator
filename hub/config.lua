@@ -132,6 +132,9 @@ C.motion = {
   levelZone = 0.35,        -- blocks from the stop where the car creeps at levelRpm
   stopTol = 0.03,          -- stop when the (lag-corrected) height is this close
   levelTol = 0.0625,       -- level = within 1/16 of a block
+  relevelStart = 0.12,     -- doors open and the car drifted this far off level: creep it back with the doors open
+  relevelZone = 1.0,       -- ...but only this close to the floor
+  relevelTime = 10,        -- ...for this long at most
 }
 
 -- Safety checks.
