@@ -120,13 +120,25 @@ function H:setMotor(name, rpm, force)
   else self:problem(sig, "error"); self.motorRpm[name] = nil end
 end
 
--- Stop both motors and set every brake. Used at start-up and on a crash.
+function H:setCounterweight(name, rpm)
+  local cw = self.cfg.cars[name].counterweight
+  if not cw or self.motorRpm["cw" .. name] == rpm then return end
+  local m = self:wrap(cw.motor)
+  local sig = { cw.motor, "motor" }
+  if not m then self:problem(sig, "missing"); self.motorRpm["cw" .. name] = nil; return end
+  if pcall(m.setGeneratedSpeed, rpm) then self.motorRpm["cw" .. name] = rpm; self.problems[key(sig)] = nil
+  else self:problem(sig, "error"); self.motorRpm["cw" .. name] = nil end
+end
+
+-- Stop every motor and set every brake. Used at start-up and on a crash.
 function H:safeStop()
   for _, name in ipairs(self.order) do
     local cc = self.cfg.cars[name]
     self:output(cc.brakeRelease, false, true)
     self:setMotor(name, 0, true)
     self:output(cc.doorOpen, false, true)
+    self.motorRpm["cw" .. name] = nil
+    self:setCounterweight(name, 0)
   end
 end
 

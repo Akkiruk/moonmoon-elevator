@@ -5,12 +5,13 @@ local cfg = require "config"
 local Elevator = require "elevator"
 local HW = require "hw"
 local panel = require "panel"
+local counterweight = require "counterweight"
 
 local hw = HW.new(cfg)
 local ctl = Elevator.new(cfg)
 local T = cfg.timing
 
-local pos, door, blocked, events = {}, {}, {}, {}
+local pos, door, blocked, events, cwPos = {}, {}, {}, {}, {}
 local lastState, lastPanel, lastSentAt = {}, {}, {}
 local lastLanding, landingAt = {}, {}
 local targets = {}
@@ -31,6 +32,8 @@ local function netLoop()
       if t == "pos" then
         -- a single failed fix keeps the last good one; posMaxAge decides when it's too old
         if type(msg.y) == "number" then pos[msg.car] = { y = msg.y, t = clock() } end
+      elseif t == "cwpos" then
+        if type(msg.y) == "number" then cwPos[msg.car] = { y = msg.y, t = clock() } end
       elseif t == "door_state" then
         door[msg.car] = { open = msg.open and true or false, ok = msg.ok and true or false, t = clock() }
       elseif t == "hello" then
@@ -111,6 +114,10 @@ local function controlLoop()
     inp.events, events = events, {}
     local out = ctl:step(now, inp)
     hw:write(out, now)
+    for _, name in ipairs(ctl.order) do
+      local rpm = counterweight.step(cfg, name, ctl.cars[name].stops, pos[name], cwPos[name], now)
+      if rpm then hw:setCounterweight(name, rpm) end
+    end
     for _, msg in ipairs(out.messages) do send(msg) end
     sendLandings(now)
     for _, name in ipairs(ctl.order) do

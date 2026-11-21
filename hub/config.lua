@@ -54,6 +54,10 @@ C.cars = {
     -- its floor without it lighting, or it lighting with the car far away, is a fault); floors left out are not.
     -- e.g. contacts = { [1] = S("redstone_relay_6", "top"), [6] = S("redstone_relay_6", "back") },
     contacts = {},
+    -- Decorative counterweight on its own winch and motor (not on the car's drive), with a computer riding on it
+    -- (counterweight/cw.lua) that reports its height. top / bottom: its GPS height with the car at the bottom stop /
+    -- the top stop. nil = no counterweight control.
+    counterweight = nil, -- e.g. { motor = "Create_CreativeMotor_2", motorSign = 1, top = 128, bottom = 69 },
     landingDoors = { -- feeds the Redstone Link transmitter for each landing door, on = open
       S("redstone_relay_3", "top"),   -- L1
       S("redstone_relay_3", "right"), -- L2
@@ -144,6 +148,10 @@ C.safety = {
   contactMustLight = 0.25, -- passing within this of a stop without its contact lighting is a fault
   contactFar = 2.0,        -- a contact lit with GPS further than this from its stop is a fault
 }
+
+-- How the counterweight motor chases its spot: rpm per block off, top speed, how close is close enough, and how
+-- old a position may be before the motor stops.
+C.counterweightControl = { gain = 16, maxRpm = 96, deadband = 0.3, maxAge = 1 }
 
 -- An emergency stop clears itself (then the car levels at the nearest floor) once the car has stood still with a
 -- good position for `still` seconds, no sooner than `after` seconds from the stop. More than `max` of those in

@@ -4,6 +4,7 @@ Cars are named "A" (Moon-Moon's original position) and "B" (the mirror, on the l
 
 ## Cab -> hub
 - `{type="pos", car, y, t}`, about 10 times a second: y is the cab computer's `gps.locate()` height. `t` is `os.epoch("utc")`. If GPS fails, send `{type="pos", car, y=nil, err="nogps"}`. The hub treats a car with no fresh position (more than 0.5 s old) as faulted and brakes it.
+- `{type="cwpos", car, y}`, about 5 times a second, from the counterweight computer (counterweight/cw.lua): its GPS height. Only used to steer the decorative counterweight; a missing one just stops its motor. Like the cab, it sends straight to the hub once it has heard a `state` for its car.
 - `{type="hello", car}` at boot. The hub answers with a full `state`.
 
 ## Panel computer -> hub (the cab's touchscreen button panel; design change 2026-11-20)
