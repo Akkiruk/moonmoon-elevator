@@ -1,0 +1,9 @@
+{
+  "version": { "mc": "1.21.1", "cc": "1.120.2" },
+  "advanced": true,
+  "peripherals": [
+    { "name": "right", "type": "speaker" },
+    { "name": "top", "type": "modem" }
+  ],
+  "monitors": [{ "name": "bottom", "blocksWide": 2, "blocksHigh": 1 }]
+}
