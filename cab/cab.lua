@@ -10,8 +10,7 @@
 --   mmlift.hub      optional computer id of the hub; unset = broadcast
 --   mmlift.track    music file or URL, default /tracks/sins.24k.dfpwm
 --   mmlift.volume   music volume 0..3, default 1
---   mmlift.reader   block reader peripheral name/side for the door sensor (default: find one)
---   mmlift.doorClosed  block name that means "door closed" when it has no open state
+--   mmlift.doorSide side where the door-sensor computer's redstone arrives (default "left")
 --   mmlift.silence  seconds without a hub state before "Out of Order", default 5
 local music = require "music"
 
@@ -27,9 +26,7 @@ M.config = {
   posPeriod = 0.1,
   helloEvery = 3,
   chimeGap = 0.6,
-  reader = nil,            -- block reader peripheral name or side; nil = find one
-  doorOpen = { "none", "minecraft:air" },
-  doorClosed = {},         -- block names that mean "door closed" (besides an open=false state)
+  doorSide = "left",
 }
 
 -- The position source. Tests replace it. Returns the GPS height or nil.
@@ -80,12 +77,10 @@ local function loadConfig()
     c.car = l and l:match("%S+")
   end
   c.hub = c.hub or settings.get("mmlift.hub")
+  c.doorSide = settings.get("mmlift.doorSide") or c.doorSide
   c.track = settings.get("mmlift.track") or c.track
   c.volume = settings.get("mmlift.volume") or c.volume
   c.silence = settings.get("mmlift.silence") or c.silence
-  c.reader = c.reader or settings.get("mmlift.reader")
-  local dc = settings.get("mmlift.doorClosed")
-  if dc then c.doorClosed = type(dc) == "table" and dc or { dc } end
   c.car = tostring(c.car or "A")
 end
 
@@ -420,33 +415,16 @@ local function alarmLoop()
   end
 end
 
--- Door sensor: an AP block reader beside the car door. Reports {type="door_state", car, open, ok}
--- on change and every second. The block in front of the reader says the state:
---   a block with an "open" state property: open = that value (copycat/sliding doors have one);
---   air ("none" / minecraft:air): open = true (the door has slid away);
---   a block named in config.doorClosed: open = false;  any other block: ok = false.
--- No reader, an error or no block name: ok = false.
-function M.readDoor()
-  local r = M.reader()
-  if not r then return false, false end
-  local ok, name = pcall(r.getBlockName)
-  if not ok or type(name) ~= "string" then return false, false end
-  local ok2, states = pcall(function() return r.getBlockStates and r.getBlockStates() end)
-  if ok2 and type(states) == "table" and states.open ~= nil then
-    return (states.open == true or states.open == "true"), true
-  end
-  for _, n in ipairs(M.config.doorOpen) do if n == name then return true, true end end
-  for _, n in ipairs(M.config.doorClosed) do if n == name then return false, true end end
-  return false, false
+-- Door sensor: doorsensor.lua on a small computer next to the door puts a redstone level into the side
+-- mmlift.doorSide (default "left"): 15 = open, 8 = closed, anything else (0 when it is down) = fault.
+-- Sends {type="door_state", car, open, ok} on change and every second.
+function M.doorLevel()
+  return redstone.getAnalogInput(M.config.doorSide)
 end
 
-function M.reader()
-  local n = M.config.reader
-  if n then
-    if peripheral.isPresent(n) then return peripheral.wrap(n) end
-    return nil
-  end
-  return peripheral.find("block_reader")
+function M.readDoor()
+  local level = M.doorLevel()
+  return level == 15, (level == 15 or level == 8)
 end
 
 function M.doorLoop()
@@ -458,10 +436,9 @@ function M.doorLoop()
       last, lastAt = key, os.clock()
       M.send({ type = "door_state", car = M.config.car, open = open, ok = ok })
     end
-    sleep(0.25)
+    sleep(0.1)
   end
 end
-local doorLoop = M.doorLoop
 
 -- Run every loop side by side. Nothing in here blocks for long, so no event is held up behind another.
 function M.run()
@@ -470,7 +447,7 @@ function M.run()
   pcall(function() peripheral.find("modem", function(n) if not rednet.isOpen(n) then rednet.open(n) end return true end) end)
   M.initDisplay()
   M.send({ type = "hello", car = M.config.car })
-  parallel.waitForAny(netLoop, posLoop, helloLoop, watchdog, displayLoop, chimeLoop, alarmLoop, music.run, doorLoop)
+  parallel.waitForAny(netLoop, posLoop, helloLoop, watchdog, displayLoop, chimeLoop, alarmLoop, music.run, M.doorLoop)
 end
 
 if select("#", ...) > 0 and (...) == "cab" then return M end -- required by a test

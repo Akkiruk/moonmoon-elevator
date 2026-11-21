@@ -2,6 +2,7 @@
 -- The position source and the way messages leave are small functions in cab.lua (cab.posSource, cab.send), so the tests
 -- fake them: GPS cannot be emulated for a moving car. Hub messages arrive as real rednet_message events.
 local cab = require "cab"
+local realDoorLevel = cab.doorLevel
 local music = require "music"
 
 local log, sent, reader, fakeY
@@ -331,46 +332,69 @@ ccunit.test("positions keep flowing while music and chimes play", function()
   end)
 end, { timeout = 20 })
 
-ccunit.test("door sensor: block reader states, missing reader, unexpected block", function()
+ccunit.test("door state comes from the redstone level on the left: 15 open, 8 closed, else fault", function()
   setup()
-  local block = { name = "none", states = nil }
-  local function mk()
-    return {
-      getBlockName = function() if block.err then error("boom") end return block.name end,
-      getBlockStates = function() return block.states end,
-    }
-  end
+  local level = 8
+  cab.doorLevel = function() return level end
   with(function()
+    local function last() local d = ofType("door_state"); return d[#d] end
     sleep(0.4)
-    local d = ofType("door_state")
-    ccunit.eq(d[#d].ok, false, "no reader is a fault")
-    reader = mk()
-    block = { name = "none" }
-    sleep(0.5)
-    d = ofType("door_state"); d = d[#d]
-    ccunit.eq(d.open, true); ccunit.eq(d.ok, true); ccunit.eq(d.car, "A")
-    block = { name = "somemod:sliding_door", states = { open = false } }
-    sleep(0.5)
-    d = ofType("door_state"); d = d[#d]
-    ccunit.eq(d.open, false); ccunit.eq(d.ok, true)
-    block = { name = "somemod:sliding_door", states = { open = true } }
-    sleep(0.5)
-    d = ofType("door_state"); d = d[#d]
-    ccunit.eq(d.open, true); ccunit.eq(d.ok, true)
-    block = { name = "minecraft:cobblestone" }
-    sleep(0.5)
-    d = ofType("door_state"); d = d[#d]
-    ccunit.eq(d.ok, false, "unexpected block")
-    block = { err = true }
-    sleep(0.5)
-    d = ofType("door_state"); d = d[#d]
-    ccunit.eq(d.ok, false, "reader error")
+    ccunit.eq(last().open, false); ccunit.eq(last().ok, true); ccunit.eq(last().car, "A")
+    level = 15; sleep(0.4)
+    ccunit.eq(last().open, true); ccunit.eq(last().ok, true)
+    level = 0; sleep(0.4)
+    ccunit.eq(last().ok, false, "0 is a fault")
+    level = 11; sleep(0.4)
+    ccunit.eq(last().ok, false, "other levels are a fault")
+    level = 8
     -- every second even without a change
+    sleep(0.3)
     local n = #ofType("door_state")
     sleep(2.1)
     ccunit.truthy(#ofType("door_state") >= n + 2, "repeats each second")
   end)
+  cab.doorLevel = realDoorLevel
 end, { timeout = 20 })
+
+ccunit.test("door side defaults to left and reads the real redstone input", function()
+  setup()
+  ccunit.eq(cab.config.doorSide, "left")
+  cab.doorLevel = realDoorLevel
+  local real = redstone.getAnalogInput
+  local asked
+  redstone.getAnalogInput = function(side) asked = side; return 15 end
+  with(function()
+    sleep(0.4)
+    local d = ofType("door_state")
+    ccunit.eq(d[#d].open, true)
+  end)
+  redstone.getAnalogInput = real
+  ccunit.eq(asked, "left")
+end, { timeout = 10 })
+
+ccunit.test("doorsensor.lua: 15 open, 8 closed, 0 when the reader is missing or fails", function()
+  setup()
+  local states = { open = true }
+  local fail = false
+  local function mk()
+    return { getBlockStates = function() if fail then error("boom") end return states end }
+  end
+  local function level() return redstone.getAnalogOutput("top") end
+  parallel.waitForAny(function() dofile("doorsensor.lua") end, function()
+    reader = nil; sleep(0.3)
+    ccunit.eq(level(), 0, "no reader")
+    reader = mk(); sleep(0.3)
+    ccunit.eq(level(), 15, "open")
+    states = { open = false }; sleep(0.3)
+    ccunit.eq(level(), 8, "closed")
+    fail = true; sleep(0.3)
+    ccunit.eq(level(), 0, "read fails")
+    fail = false; states = nil; sleep(0.3)
+    ccunit.eq(level(), 0, "no state")
+    states = { open = true }; sleep(0.3)
+    ccunit.eq(level(), 15, "back")
+  end)
+end, { timeout = 15 })
 
 ccunit.test("messages for the other car are ignored", function()
   setup()
