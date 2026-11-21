@@ -24,13 +24,17 @@ DFPWM is 6000 bytes per second. "Sins" is 171.75 s, so `cab/tracks/sins.dfpwm` i
 - `cab/tracks/sins-short.dfpwm` (60 s, 360,000 bytes, faded) goes on the computer as `/tracks/` and plays when the
   URL cannot be reached.
 
-### Other music
+### Making the track
 
-`node tools/to-dfpwm.mjs in.mp3 cab/tracks/out.dfpwm [--start 30 --seconds 60 --fade 2 --gain -3]` (ffmpeg with the
-dfpwm encoder; the WinGet ffmpeg has it). It prints the size and warns when it will not fit on a disk.
-YouTube: this needs a download first, which is not set up here: `yt-dlp -x --audio-format mp3 <link>` (install
-yt-dlp yourself), then the command above. https://music.madefor.cc/ exists and converts an uploaded audio file or an
-audio URL in the browser, but it is not a YouTube downloader.
+Sins is red_exp's `assets/red_exp/sounds/sins.ogg` (unzip it from the mod jar), converted with
+`node tools/to-dfpwm.mjs sins.ogg cab/tracks/sins.dfpwm` (ffmpeg with the dfpwm encoder; WinGet's has it). The short
+clip is the same with `--seconds 60 --fade 2`. Any other audio file works the same; for YouTube, run
+`yt-dlp -x <link>` yourself first (not installed here).
+
+### Two cars
+
+Each cab computer runs its own copy of the player: no files are written and nothing is shared between computers, so
+two cars playing at once (even the same URL) do not interfere.
 
 ### Tests
 
