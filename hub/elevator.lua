@@ -282,6 +282,8 @@ end
 function E:autoReset(c)
   local a = self.cfg.autoReset
   if not a or not c.latched then c.stillSince = nil; return end
+  -- a jam stays stopped: each retry paid out more rope into slack, and when the jam let go the car fell 26 blocks
+  if a.never and a.never[c.latched] then return end
   if not (c.posFresh and c.vMeas and math.abs(c.vMeas) < a.stillSpeed and not c.fault) then
     c.stillSince = nil
     return

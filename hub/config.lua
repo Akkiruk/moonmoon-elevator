@@ -168,7 +168,8 @@ C.counterweightControl = { gain = 16, maxRpm = 96, deadband = 0.3, maxAge = 1 }
 -- An emergency stop clears itself (then the car levels at the nearest floor) once the car has stood still with a
 -- good position for `still` seconds, no sooner than `after` seconds from the stop. More than `max` of those in
 -- `window` seconds and it stays stopped until someone presses RESET on the hub panel. nil = always by hand.
-C.autoReset = { after = 20, still = 5, stillSpeed = 0.1, max = 3, window = 600 }
+-- `never`: reasons that always wait for a person.
+C.autoReset = { after = 20, still = 5, stillSpeed = 0.1, max = 3, window = 600, never = { Stalled = true } }
 
 -- car A's doorways: two blocks wide (x 46-47), z -10 to -9, from the door's bottom block up two
 for i, t in ipairs(C.thresholds) do C.cars.A.doorways[i] = { 46, t, -10, 47, t + 1, -9 } end

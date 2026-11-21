@@ -71,6 +71,20 @@ ccunit.test("a jammed car stalls instead of paying out rope", function()
   braked(w, "A")
 end, { timeout = 10 })
 
+ccunit.test("a stall is never reset automatically (retries pay out rope into slack)", function()
+  local w = H.world({ start = { A = "G", B = "6" } })
+  cruising(w, "A", "6")
+  w:p("A").jammed = true
+  ccunit.truthy(w:runUntil(function() return w:mode("A") == "emergency" end, 15))
+  w:run(90)
+  ccunit.eq(w:mode("A"), "emergency", "still stopped")
+  ccunit.eq(w:state("A").reason, "Stalled")
+  w:p("A").jammed = false
+  w:reset("A")
+  w:run(0.2)
+  ccunit.eq(w:mode("A"), "normal", "a person can reset it")
+end, { timeout = 15 })
+
 ccunit.test("frozen GPS while moving is a stall", function()
   local w = H.world({ start = { A = "6", B = "G" } })
   for i = 1, #w.cfg.floors do w:p("A").noContact[i] = true end -- as built: no floor contacts, GPS only
