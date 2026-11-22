@@ -114,6 +114,13 @@ local function controlLoop()
     inp.events, events = events, {}
     local out = ctl:step(now, inp)
     hw:write(out, now)
+    -- the updater waits for this to clear before it reboots the hub
+    local busy = false
+    for _, name in ipairs(ctl.order) do
+      local o = out.cars[name]
+      if (o and o.release) or ctl.cars[name].moving then busy = true end
+    end
+    _G.mmliftBusy = busy
     for _, name in ipairs(ctl.order) do
       local rpm = counterweight.step(cfg, name, ctl.cars[name].stops, pos[name], cwPos[name], now)
       if rpm then hw:setCounterweight(name, rpm) end

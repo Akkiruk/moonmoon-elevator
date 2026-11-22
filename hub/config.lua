@@ -57,7 +57,7 @@ C.cars = {
     -- Decorative counterweight on its own winch and motor (not on the car's drive), with a computer riding on it
     -- (counterweight/cw.lua) that reports its height. top / bottom: its GPS height with the car at the bottom stop /
     -- the top stop. nil = no counterweight control.
-    counterweight = nil, -- e.g. { motor = "Create_CreativeMotor_2", motorSign = 1, top = 128, bottom = 69 },
+    counterweight = { motor = "Create_CreativeMotor_2", motorSign = 1, top = 121, bottom = 66 },
     -- Steadying rope from a winch on the pit floor up to the car's underside, on its own motor. It pays out as the
     -- car climbs and reels in as it comes down, plus `reelRpm` of steady reel-in; the winch stops reeling in once
     -- its rope is stretched (simulated's max_rope_winch_stretch_allowed), which keeps it taut without a tug of war.
@@ -86,7 +86,7 @@ C.cars = {
     brakeRelease = S("redstone_relay_6", "right"),
     doorOpen     = S("redstone_relay_6", "left"),
     contacts = {},
-    counterweight = nil,
+    counterweight = { motor = "Create_CreativeMotor_5", motorSign = -1, top = 121, bottom = 66 },
     tension = nil,
     landingDoors = {
       S("redstone_relay_7", "top"),   -- L1

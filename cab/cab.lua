@@ -312,6 +312,7 @@ local function handle(msg)
     S.lastState = os.clock()
     S.silent = false
     if msg.music == "play" then S.wantMusic = true elseif msg.music == "stop" then S.wantMusic = false end
+    _G.mmliftBusy = msg.moving == true -- no updater reboot mid-trip
     M.applyMusic()
     wakeDraw()
   elseif t == "chime" then

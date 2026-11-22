@@ -1,0 +1,152 @@
+{
+ "roles": {
+  "hub": {
+   "startup.lua": {
+    "src": "hub/startup.lua",
+    "sha": "be4dd9b89d8f"
+   },
+   "hub.lua": {
+    "src": "hub/hub.lua",
+    "sha": "42cc8e75cb31"
+   },
+   "elevator.lua": {
+    "src": "hub/elevator.lua",
+    "sha": "3b08e347f222"
+   },
+   "hw.lua": {
+    "src": "hub/hw.lua",
+    "sha": "65d071182daf"
+   },
+   "config.lua": {
+    "src": "hub/config.lua",
+    "sha": "bd06e6181f56"
+   },
+   "counterweight.lua": {
+    "src": "hub/counterweight.lua",
+    "sha": "d6c8bd9c31e8"
+   },
+   "dispatch.lua": {
+    "src": "hub/dispatch.lua",
+    "sha": "58002308e614"
+   },
+   "motion.lua": {
+    "src": "hub/motion.lua",
+    "sha": "3f34c269c075"
+   },
+   "panel.lua": {
+    "src": "hub/panel.lua",
+    "sha": "19ebd974f758"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "cab": {
+   "startup.lua": {
+    "src": "cab/startup.lua",
+    "sha": "ca9a7031b8b4"
+   },
+   "cab.lua": {
+    "src": "cab/cab.lua",
+    "sha": "3f7f5a8f650a"
+   },
+   "music.lua": {
+    "src": "cab/music.lua",
+    "sha": "f7313dd88934"
+   },
+   "play.lua": {
+    "src": "cab/play.lua",
+    "sha": "5cc098334914"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "doorsensor": {
+   "startup.lua": {
+    "src": "doorsensor/startup.lua",
+    "sha": "8d39d1a94a73"
+   },
+   "doorsensor.lua": {
+    "src": "cab/doorsensor.lua",
+    "sha": "6f86c1cf1a88"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "landing": {
+   "startup.lua": {
+    "src": "landing/startup.lua",
+    "sha": "eb5493636a1a"
+   },
+   "landing.lua": {
+    "src": "landing/landing.lua",
+    "sha": "520e3de37510"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "panel": {
+   "startup.lua": {
+    "src": "panel/startup.lua",
+    "sha": "aac617407d1a"
+   },
+   "panel.lua": {
+    "src": "panel/panel.lua",
+    "sha": "2fe34fa49484"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "inspect": {
+   "startup.lua": {
+    "src": "inspect/startup.lua",
+    "sha": "adbfe4454ce0"
+   },
+   "inspect.lua": {
+    "src": "inspect/inspect.lua",
+    "sha": "ac2b76e01a61"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "plaque": {
+   "startup.lua": {
+    "src": "plaque/startup.lua",
+    "sha": "5dc1cced4915"
+   },
+   "plaque.lua": {
+    "src": "plaque/plaque.lua",
+    "sha": "991f919782c9"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  },
+  "cw": {
+   "startup.lua": {
+    "src": "counterweight/startup.lua",
+    "sha": "840905695678"
+   },
+   "cw.lua": {
+    "src": "counterweight/cw.lua",
+    "sha": "59f3d8a8ddcd"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "90817127f1a1"
+   }
+  }
+ }
+}

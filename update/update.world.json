@@ -1,0 +1,5 @@
+{
+  "version": { "mc": "1.21.1", "cc": "1.120.2" },
+  "advanced": true,
+  "peripherals": [{ "name": "top", "type": "modem" }]
+}
