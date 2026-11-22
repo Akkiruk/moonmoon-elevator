@@ -38,6 +38,20 @@ How the software sees the build. Everything here was proven in game unless it sa
 
 ## Link frequency plan
 Every link signal gets its own pair of frequency items, one table per car. Place each link with its frequency in the block data, then wrench the receivers. See REQUIREMENTS.md, "Hardware facts".
+- Car A: landing doors iron door + the floor's dye (L1 white, L2 orange, P3 magenta, P2 light blue, P1 yellow, G lime, 2 pink, 3 gray, 4 light gray, 5 cyan, 6 purple); car door iron door + black dye.
+- Car B: the same with an iron trapdoor in place of the iron door, so one car never opens the other's doors.
+- Fire (red dye + redstone torch) and lockdown (purple dye + iron bars) are building-wide: one receiver each on relay 1, and both cars react.
+- A link placed with /setblock joins the empty-frequency network until it's wrenched, and an empty-frequency receiver hears every transmitter (that's how a door transmitter once set off the fire alarm). Wrench every new link: receivers once, transmitters twice. /clone and structure copies drop link frequencies, copycat materials and computer IDs, so check all three after moving anything.
+
+## Car B (test world, 2026-11-21)
+Shaft B is shaft A mirrored across x 43, so the landing lamps of the two shafts are one block apart (A's at x 44, B's at x 42). B's x = 86 - A's x.
+- Drive on top: winch 39,132,-7, brake 38, gearbox 37, gearshift 36, motor 35 (Create_CreativeMotor_6). The mirrored drive turns the other way, so motorSign is -1.
+- Brake and car door: redstone_relay_6 at 37,130,-7 (right = brake release, left = car door link).
+- Landing doors: redstone_relay_7/8/9 at 56,134,-9/-7/-5, same sides as A's 3/4/5.
+- Counterweight: winch 39,132,-3, motor Create_CreativeMotor_5 (motorSign -1), computer 59 riding on it.
+- Computers: landings 43-53 (car.txt B), cab 55 (mmlift.doorSide right), door sensor 54, panel 57 (keycard on the right), inspect 56, plaque 58. Mirroring swaps left and right for every side setting.
+- The SecurityCraft keycard reader isn't picked up by assembly; it was moved into the car's plot by hand afterwards.
+- One cable along y 133 (over the quartz at y 134) joins B's drive to the hub's network.
 
 ## Still untested
 - The door drive on the car: a creative motor plus a gearshift switched by link.
