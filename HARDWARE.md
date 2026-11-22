@@ -18,7 +18,7 @@ How the software sees the build. Everything here was proven in game unless it sa
 | Doorway detector | one advancedperipherals:player_detector at the hub | hub | `getPlayersInCoords` over the doorway box of the floor the car is at. No wiring to the car |
 | Cab display | the existing 2x1 advanced monitor under the cab computer | cab | floor, direction, door state, messages ("Out of Order", fire, inspection) |
 | Plaque | a small monitor in the cab above the panel, on its own tiny computer | plaque computer | static text, drawn once |
-| Speaker | the speaker on the cab computer (audibility untested) | cab | chimes and music (cab/music.lua) |
+| Speaker | the speaker on the cab computer, plus a second one on its back for gapless music | cab | chimes and music (cab/music.lua) |
 
 ## Hub-wide
 - Hall buttons: an up and a down button at each landing (only one at the ends), relay inputs.

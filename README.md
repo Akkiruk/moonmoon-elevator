@@ -24,8 +24,13 @@ own object. cc-audio-expand (which also takes over plain `speaker.playAudio` on 
 again, so every packet starts as a new sound the moment it reaches the client. The server sends each packet half a
 second early, so the packets overlapped by 0.5 s and the old sound's cleanup wiped the new one's queue: choppy,
 doubled audio. The player now starts with a 0.525 s silent packet and sends whole-tick packets, which lines the server's
-timing up so each packet arrives as the last one ends (more in `cab/music.lua`). Ogg packets are 8-bit so each one
-can be 2.7 s: `playAudioEx` takes at most 131072 bytes, mono and 48 kHz only, so nothing longer is possible. 1-bit DFPWM also
+timing up so each packet arrives as the last one ends (more in `cab/music.lua`). `playAudioEx` takes at most
+131072 bytes, mono and 48 kHz only, so a 16-bit packet can't be longer than 1.36 s.
+
+Each packet still starts as a new sound, a few ms off from where the last one ends (the client starts it on its next
+frame and next audio mix), which ticks. With a second speaker on the cab computer the packets alternate between the
+two and overlap by 0.15 s with a crossfade, so there's no gap or jump left to hear. With one speaker it plays back to
+back as before. 1-bit DFPWM also
 adds hiss above the music's own treble, hence Ogg. The whole song as one Ogg file would decode in one go and stall
 every computer for about half a second, hence the parts.
 
