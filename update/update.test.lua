@@ -24,7 +24,7 @@ end
 local function read(p) local f = fs.open(p, "r"); local s = f.readAll(); f.close(); return s end
 
 local function clean()
-  for _, p in ipairs({ "/.versions", "/landing.lua", "/startup.lua", "/update.lua", "/update.log" }) do
+  for _, p in ipairs({ "/.versions", "/landing.lua", "/startup.lua", "/update.log" }) do
     if fs.exists(p) then fs.delete(p) end
   end
 end
@@ -106,4 +106,54 @@ ccunit.test("update music pulls a track folder from any url", function()
   served["song/02.ogg"] = nil
   ccunit.eq(update.music("https://x/song/", "/tmp_tracks"), false, "a missing part fails")
   fs.delete("/tmp_tracks")
+end, { timeout = 10 })
+
+ccunit.test("a startup restarts a program that crashes and checks for a fix each time", function()
+  clean()
+  serve({})
+  -- a stand-in program that counts its runs and then crashes
+  local f = fs.open("/landing.lua", "w")
+  f.write("local n = settings.get('t.runs') or 0 settings.set('t.runs', n + 1) error('boom')")
+  f.close()
+  settings.unset("t.runs")
+  local src = fs.open("/startup_under_test.lua", "w")
+  src.write(read("/landing_startup.lua"))
+  src.close()
+  parallel.waitForAny(function() shell.run("/startup_under_test.lua") end, function() sleep(11) end)
+  ccunit.truthy((settings.get("t.runs") or 0) >= 2, "ran " .. tostring(settings.get("t.runs")) .. " times")
+  local checks = 0
+  for _, u in ipairs(asked) do if u:find("manifest.json") then checks = checks + 1 end end
+  ccunit.truthy(checks >= 2, "asked for a fix after the crash (" .. checks .. " checks)")
+  settings.unset("t.runs")
+  fs.delete("/startup_under_test.lua")
+end, { timeout = 20 })
+
+ccunit.test("Lua that doesn't compile is refused and the old file stays", function()
+  clean()
+  serve({
+    ["manifest.json"] = manifest({ ["landing.lua"] = { src = "landing/landing.lua", sha = "a1" } }),
+    ["landing/landing.lua"] = "print('ok')",
+  })
+  update.run("landing")
+  served["manifest.json"] = manifest({ ["landing.lua"] = { src = "landing/landing.lua", sha = "a2" } })
+  served["landing/landing.lua"] = "print('oops'"
+  ccunit.eq(update.run("landing"), false)
+  ccunit.eq(read("/landing.lua"), "print('ok')")
+  ccunit.truthy(read("/update.log"):find("doesn't compile"), "logged why")
+end, { timeout = 10 })
+
+ccunit.test("a new updater keeps the old one as update.prev.lua, and either loads with dofile", function()
+  clean()
+  if fs.exists("/update.prev.lua") then fs.delete("/update.prev.lua") end
+  local real = read("/update.lua")
+  local f = fs.open("/update.lua", "w"); f.write("local M = { old = true } return M"); f.close()
+  serve({
+    ["manifest.json"] = manifest({ ["update.lua"] = { src = "update/update.lua", sha = "u2" } }),
+    ["update/update.lua"] = "local M = { new = true } if select('#', ...) == 0 or (...) == 'update' then return M end",
+  })
+  ccunit.truthy(update.run("landing"))
+  ccunit.truthy(dofile("/update.prev.lua").old, "the previous updater is kept")
+  ccunit.truthy(dofile("/update.lua").new, "the new one loads as a module through dofile")
+  fs.delete("/update.prev.lua")
+  f = fs.open("/update.lua", "w"); f.write(real); f.close()
 end, { timeout = 10 })

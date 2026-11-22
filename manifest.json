@@ -3,7 +3,7 @@
   "hub": {
    "startup.lua": {
     "src": "hub/startup.lua",
-    "sha": "be4dd9b89d8f"
+    "sha": "9ae6c5188107"
    },
    "hub.lua": {
     "src": "hub/hub.lua",
@@ -39,13 +39,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "cab": {
    "startup.lua": {
     "src": "cab/startup.lua",
-    "sha": "ca9a7031b8b4"
+    "sha": "b3266f3a0765"
    },
    "cab.lua": {
     "src": "cab/cab.lua",
@@ -61,13 +61,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "doorsensor": {
    "startup.lua": {
     "src": "doorsensor/startup.lua",
-    "sha": "8d39d1a94a73"
+    "sha": "e6ed1028e7f5"
    },
    "doorsensor.lua": {
     "src": "cab/doorsensor.lua",
@@ -75,13 +75,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "landing": {
    "startup.lua": {
     "src": "landing/startup.lua",
-    "sha": "eb5493636a1a"
+    "sha": "1a71f088c68d"
    },
    "landing.lua": {
     "src": "landing/landing.lua",
@@ -89,13 +89,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "panel": {
    "startup.lua": {
     "src": "panel/startup.lua",
-    "sha": "aac617407d1a"
+    "sha": "fc31f369bbf0"
    },
    "panel.lua": {
     "src": "panel/panel.lua",
@@ -103,13 +103,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "inspect": {
    "startup.lua": {
     "src": "inspect/startup.lua",
-    "sha": "adbfe4454ce0"
+    "sha": "2b25e37d0cd1"
    },
    "inspect.lua": {
     "src": "inspect/inspect.lua",
@@ -117,13 +117,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "plaque": {
    "startup.lua": {
     "src": "plaque/startup.lua",
-    "sha": "5dc1cced4915"
+    "sha": "974bc12059dd"
    },
    "plaque.lua": {
     "src": "plaque/plaque.lua",
@@ -131,13 +131,13 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   },
   "cw": {
    "startup.lua": {
     "src": "counterweight/startup.lua",
-    "sha": "840905695678"
+    "sha": "363030e9ff2c"
    },
    "cw.lua": {
     "src": "counterweight/cw.lua",
@@ -145,7 +145,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "919e2e9c3d73"
+    "sha": "9699ccc151cd"
    }
   }
  }

@@ -1,7 +1,7 @@
 // Writes manifest.json: for each computer role, the files it gets and a sha of each. The computers compare
 // these with what they last installed (update/update.lua). Run it before pushing a change:
 //   node tools/manifest.mjs
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -35,5 +35,7 @@ for (const [role, files] of Object.entries(roles)) {
     out.roles[role][name] = { src, sha };
   }
 }
+// the updater's crash-restart test runs a real startup file
+copyFileSync(join(root, "landing/startup.lua"), join(root, "update/landing_startup.lua"));
 writeFileSync(join(root, "manifest.json"), JSON.stringify(out, null, 1) + "\n");
 console.log("manifest.json: " + Object.keys(out.roles).join(", "));

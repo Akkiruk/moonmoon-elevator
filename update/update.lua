@@ -63,10 +63,20 @@ function M.apply(todo)
   for _, f in ipairs(todo) do
     local body, err = M.fetch(M.base .. f.src)
     if not body then return false, f.src .. ": " .. tostring(err) end
+    -- a typo in a push must never reach the disk: Lua that doesn't compile is refused and the old file stays
+    if f.name:match("%.lua$") then
+      local fn, why = load(body, "=" .. f.name)
+      if not fn then return false, f.src .. " doesn't compile: " .. tostring(why) end
+    end
     got[#got + 1] = { f = f, body = body }
   end
   local have = readJson(M.stateFile) or {}
   for _, g in ipairs(got) do
+    -- keep the updater that works now, so a startup can fall back to it if the new one breaks at run time
+    if g.f.name == "update.lua" and fs.exists("/update.lua") then
+      if fs.exists("/update.prev.lua") then fs.delete("/update.prev.lua") end
+      fs.copy("/update.lua", "/update.prev.lua")
+    end
     local h = fs.open("/" .. g.f.name .. ".new", "wb"); h.write(g.body); h.close()
     if fs.exists("/" .. g.f.name) then fs.delete("/" .. g.f.name) end
     fs.move("/" .. g.f.name .. ".new", "/" .. g.f.name)
@@ -136,7 +146,8 @@ function M.music(url, dir)
   return true
 end
 
-if select("#", ...) > 0 and (...) == "update" then return M end
+-- require "update" passes "update"; dofile passes nothing. Either way it's the module, not the command.
+if select("#", ...) == 0 or (...) == "update" then return M end
 if (...) == "music" then
   local url = select(2, ...)
   if not url then print("usage: update music <url of the folder holding list.txt>") return end

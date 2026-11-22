@@ -1,4 +1,24 @@
--- Check for an update, then run the panel with the updater watching in the background.
-local update = require "update"
-update.boot("panel")
-parallel.waitForAny(function() shell.run("panel") end, function() update.watch("panel") end)
+-- Runs panel. If it crashes it starts again a few seconds later, and the updater keeps checking for a fix
+-- the whole time, so a bad push can always be fixed with another push.
+local ok, update = pcall(require, "update")
+if not ok and fs.exists("/update.prev.lua") then ok, update = pcall(dofile, "/update.prev.lua") end
+if ok then pcall(update.boot, "panel") end
+
+local function run()
+  while true do
+    shell.run("panel")
+    -- only reached after a crash: a fix may already be waiting
+    if ok then
+      local fine, changed = pcall(update.run, "panel")
+      if fine and changed then os.reboot() end
+    end
+    sleep(5)
+  end
+end
+
+if ok then
+  -- a broken updater only stops the checks, never the program
+  parallel.waitForAny(run, function() pcall(update.watch, "panel"); while true do os.pullEvent("never") end end)
+else
+  run()
+end
