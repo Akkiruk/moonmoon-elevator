@@ -10,12 +10,22 @@
 -- A track folder is Ogg Vorbis parts plus list.txt (tools/to-ogg.mjs makes one). It needs the cc-audio-expand mod:
 -- cc.audio.ogg decodes a part in Java and speaker.playAudioEx takes the 16-bit samples as a string, so Lua never
 -- touches a sample. DFPWM files are decoded here in Lua instead, which costs real CPU on a shared computer thread.
+--
+-- Why every packet is exactly 1.35 s and playback starts with a short silent packet: the cab is on a Sable
+-- sub-level. Sable wraps each sound played there in its own object, so the speaker's client code never finds its
+-- sound again (isActive is always false) and every packet starts as a new sound the moment it arrives. The server
+-- sends a packet 0.5 s before it thinks the last one ends, so packets overlapped by half a second and the old one's
+-- cleanup wiped the new one's queue. The silent packet is 0.525 s, which puts the server's clock 0.5 s ahead
+-- of the real audio, so from then on each packet arrives as the last one ends; 1.35 s is 27 ticks, which keeps
+-- the send times halfway between ticks. Off a sub-level this costs half a second of silence at the start.
 local dfpwm = require "cc.audio.dfpwm"
 
-local PACKET = 131072 -- bytes of 16-bit audio per playAudioEx call (its limit) = 65536 samples = 1.37 s
-local CHUNK = 8192    -- bytes of DFPWM per playAudio call = 65536 samples, the most cc-audio-expand's playAudio takes
-local PIECE = 512     -- DFPWM bytes decoded between yields
-local RETRY = 10      -- seconds to wait when neither the source nor the fallback opens
+local SAMPLES = 64800 -- per packet: 1.35 s
+local PACKET = SAMPLES * 2 -- bytes of 16-bit audio per playAudioEx call (it takes up to 131072)
+local CHUNK = SAMPLES / 8 -- bytes of DFPWM per playAudio call (cc-audio-expand's playAudio takes up to 65536 samples)
+local LEAD = 25200 -- samples in the silent packet: 0.525 s
+local PIECE = 512 -- DFPWM bytes decoded between yields
+local RETRY = 10 -- seconds to wait when neither the source nor the fallback opens
 
 -- A file named like sins.24k.dfpwm holds 24000 samples/s (16k works too); it is decoded and stretched back to
 -- the speaker's 48 kHz by linear interpolation, so a track takes 1/2 (or 1/3) of the disk.
@@ -26,7 +36,9 @@ local function rateFactor(path)
 end
 
 local music = { speaker = nil } -- music.speaker: a peripheral name; nil means "find one"
-local st = { src = nil, fallback = nil, volume = 1, ducked = false, gen = 0 }
+-- ends: os.epoch time the client runs out of audio as the server counts it, nil when nothing is queued. It carries
+-- over from one pass of a track to the next, so a loop doesn't need the silent packet again.
+local st = { src = nil, fallback = nil, volume = 1, ducked = false, gen = 0, ends = nil }
 
 local function wake() os.queueEvent("music_cmd") end
 
@@ -34,12 +46,14 @@ local function wake() os.queueEvent("music_cmd") end
 function music.play(src, opts)
   st.src, st.fallback = src, opts and opts.fallback
   st.gen = st.gen + 1 -- tells the loop to drop what it is reading
+  st.ends = nil
   wake()
 end
 
 function music.stop()
   st.src = nil
   st.gen = st.gen + 1
+  st.ends = nil
   wake()
 end
 
@@ -138,10 +152,10 @@ local function open(path)
   return fs.exists(path) and fs.open(path, "rb") or nil
 end
 
--- Wait for a speaker_audio_empty or a command, whichever comes first. The timer is a backstop: one missed
--- speaker_audio_empty would otherwise stall the music for good.
+-- Wait for a speaker_audio_empty or a command, whichever comes first. The timer is a backstop: the event is lost
+-- if it lands while playAudioEx waits for the main thread. 0.5 s still leaves the next packet in time.
 local function waitSpace()
-  local t = os.startTimer(1)
+  local t = os.startTimer(0.5)
   while true do
     local ev, id = os.pullEvent()
     if ev == "speaker_audio_empty" or ev == "music_cmd" or (ev == "timer" and id == t) then return end
@@ -151,7 +165,33 @@ end
 local function stopFor(speaker, gen)
   if speaker and st.gen ~= gen then
     speaker.stop()
+    st.ends = nil
     sleep(0.1) -- stop() lands on the next tick and drops audio pushed before it; let it land
+  end
+end
+
+-- Returns send(packet): it blocks until the speaker takes the packet, starting with the silent one (see the top)
+-- after a start, a duck or a stall. A duck holds the packet and sends it once the duck is over. Returns false when
+-- the settings change.
+local function feeder(speaker, gen, push, silence)
+  return function(packet)
+    while st.gen == gen do
+      local now = os.epoch("utc")
+      if st.ducked then
+        speaker.stop()
+        st.ends = nil
+        while st.ducked and st.gen == gen do os.pullEvent("music_cmd") end
+      elseif not st.ends or now > st.ends - 100 then
+        -- fresh start, or we were so late the server will start over: the silent packet sets it up again
+        if push(silence) then st.ends = now + LEAD / 48 else waitSpace() end
+      elseif push(packet) then
+        st.ends = math.max(now, st.ends) + SAMPLES / 48
+        return true
+      else
+        waitSpace()
+      end
+    end
+    return false
   end
 end
 
@@ -159,6 +199,10 @@ end
 local function playParts(track, gen)
   local speaker = getSpeaker()
   local ogg = require "cc.audio.ogg"
+  local send = feeder(speaker, gen, function(s)
+    return speaker.playAudioEx(s, { format = "pcm_s16le", volume = st.volume })
+  end, ("\0"):rep(LEAD * 2))
+  local rest = "" -- packets run on across parts, so every one is a full 1.35 s
   for _, p in ipairs(track.parts) do
     local f = fs.open(p.file, "rb")
     if not f then error("missing " .. p.file) end
@@ -166,62 +210,54 @@ local function playParts(track, gen)
     f.close()
     local pcm, info = ogg.decode(data)
     assert(info.sampleRate == 48000 and info.channels == 1, p.file .. " must be mono 48 kHz")
-    pcm = pcm:sub(p.skip * 2 + 1, (p.skip + p.keep) * 2)
+    pcm = rest .. pcm:sub(p.skip * 2 + 1, (p.skip + p.keep) * 2)
     local i = 1
-    while i <= #pcm do
-      if st.gen ~= gen then stopFor(speaker, gen); return false end
-      if st.ducked then
-        speaker.stop()
-        while st.ducked and st.gen == gen do os.pullEvent("music_cmd") end
-        -- what was already sent is gone, so it carries on from the next packet
-      elseif speaker.playAudioEx(pcm:sub(i, i + PACKET - 1), { format = "pcm_s16le", volume = st.volume }) then
-        i = i + PACKET
-      else
-        waitSpace()
-      end
+    while #pcm - i + 1 >= PACKET do
+      if not send(pcm:sub(i, i + PACKET - 1)) then stopFor(speaker, gen); return false end
+      i = i + PACKET
     end
+    rest = pcm:sub(i)
   end
+  if #rest > 0 and not send(rest .. ("\0"):rep(PACKET - #rest)) then stopFor(speaker, gen); return false end
   return true
 end
 
+local silent -- the silent packet as a table, made once
+
 -- Play a DFPWM file or download to its end. Returns early (false) when the settings change.
 local function playDfpwm(h, gen, factor)
-  local chunkBytes = math.floor(CHUNK / factor) -- keeps each push at 65536 samples
+  local speaker = getSpeaker()
+  if not speaker then return false end
+  if not silent then
+    silent = {}
+    for i = 1, LEAD do silent[i] = 0 end
+  end
+  local send = feeder(speaker, gen, function(buf) return speaker.playAudio(buf, st.volume) end, silent)
+  local chunkBytes = CHUNK / factor -- 1.35 s whatever the rate
   local prev = 0
   local dec = decoder()
-  local speaker = getSpeaker()
-  while st.gen == gen and speaker do
-    if st.ducked then
-      speaker.stop()
-      dec, prev = decoder(), 0 -- do not carry the decoder's state over the gap
-      while st.ducked and st.gen == gen do os.pullEvent("music_cmd") end
-    else
-      local chunk = h.read(chunkBytes)
-      if not chunk or #chunk == 0 then return true end -- end of the track
-      -- a whole chunk at once holds up the cab's 10 Hz position reports, so decode it in pieces and yield between
-      local buf, n, worst = {}, 0, 0
-      for i = 1, #chunk, PIECE do
-        local t0 = os.clock()
-        local s = chunk:sub(i, i + PIECE - 1)
-        if factor > 1 then
-          local part = {}
-          dec(s, part, 0)
-          n, prev = upsample(part, factor, prev, buf, n)
-        else
-          n = dec(s, buf, n)
-        end
-        worst = math.max(worst, os.clock() - t0)
-        os.queueEvent("music_yield"); os.pullEvent("music_yield")
+  while true do
+    local chunk = h.read(chunkBytes)
+    if not chunk or #chunk == 0 then return true end -- end of the track
+    -- a whole chunk at once holds up the cab's 10 Hz position reports, so decode it in pieces and yield between
+    local buf, n, worst = {}, 0, 0
+    for i = 1, #chunk, PIECE do
+      local t0 = os.clock()
+      local s = chunk:sub(i, i + PIECE - 1)
+      if factor > 1 then
+        local part = {}
+        dec(s, part, 0)
+        n, prev = upsample(part, factor, prev, buf, n)
+      else
+        n = dec(s, buf, n)
       end
-      music.lastPiece = worst -- for the tests
-      while st.gen == gen and not st.ducked and not speaker.playAudio(buf, st.volume) do
-        waitSpace()
-      end
-      -- if we left the loop because of a duck, this chunk is dropped: the track resumes just after it
+      worst = math.max(worst, os.clock() - t0)
+      os.queueEvent("music_yield"); os.pullEvent("music_yield")
     end
+    music.lastPiece = worst -- for the tests
+    for i = n + 1, SAMPLES do buf[i] = 0 end -- the last chunk, padded so the timing holds
+    if not send(buf) then stopFor(speaker, gen); return false end
   end
-  stopFor(speaker, gen)
-  return false
 end
 
 --- The player loop. Never returns; run it inside parallel.waitForAny / waitForAll.
