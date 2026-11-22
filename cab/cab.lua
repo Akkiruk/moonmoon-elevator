@@ -11,6 +11,7 @@
 --   mmlift.hub      optional computer id of the hub; unset = broadcast
 --   mmlift.track    music track folder, .dfpwm file or URL, default /tracks/sins
 --   mmlift.volume   music volume 0..3, default 0.35 (above 1 it also carries further)
+--   mmlift.musicOnlyMoving  true (default) = music only while the car moves, paused at stops
 --   mmlift.doorSide side where the door-sensor computer's redstone arrives (default "left")
 --   mmlift.silence  seconds without a hub state before "Out of Order", default 5
 local music = require "music"
@@ -29,6 +30,7 @@ M.config = {
   helloEvery = 3,
   chimeGap = 0.6,
   doorSide = "left",
+  onlyMoving = true, -- music pauses while the car stands still and carries on with the next trip
 }
 
 -- The position source. Tests replace it. Returns the GPS height or nil.
@@ -85,6 +87,8 @@ local function loadConfig()
   c.doorSide = settings.get("mmlift.doorSide") or c.doorSide
   c.track = settings.get("mmlift.track") or c.track
   c.volume = settings.get("mmlift.volume") or c.volume
+  local om = settings.get("mmlift.musicOnlyMoving")
+  if om ~= nil then c.onlyMoving = om end
   c.silence = settings.get("mmlift.silence") or c.silence
   c.car = tostring(c.car or "A")
 end
@@ -290,7 +294,8 @@ function M.applyMusic()
     music.stop()
   end
   S.musicOn = should
-  music.duck(should and (S.hubDuck or S.chiming or S.alarming) or false)
+  local parked = M.config.onlyMoving and not (S.state and S.state.moving)
+  music.duck(should and (S.hubDuck or S.chiming or S.alarming or parked) or false)
 end
 
 local function wakeAudio() os.queueEvent("cab_audio") end

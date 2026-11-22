@@ -43,6 +43,7 @@ local function setup(silence)
   cab.config.car = "A"
   cab.config.track = "/t3.dfpwm"
   cab.config.silence = silence or 30
+  cab.config.onlyMoving = false
   cab.posSource = function() return fakeY end
   cab.send = function(m) m.at = os.clock(); sent[#sent + 1] = m end
 end
@@ -220,6 +221,21 @@ ccunit.test("a restarted cab picks the music up from the hub's state", function(
     ccunit.truthy(music.isPlaying(), "playing without a separate play command")
     feed(state({ music = "stop" }), 0.3)
     ccunit.eq(music.isPlaying(), false)
+  end)
+end, { timeout = 15 })
+
+ccunit.test("with onlyMoving the music pauses at a stop and carries on while moving", function()
+  setup()
+  cab.config.onlyMoving = true
+  with(function()
+    feed({ type = "music", car = "A", cmd = "play" }, 0.3)
+    feed(state({ moving = false }), 0.5)
+    ccunit.eq(music.isPlaying(), false, "parked: paused")
+    feed(state({ moving = true }), 1.5)
+    ccunit.truthy(music.isPlaying(), "moving: playing")
+    feed(state({ moving = false }), 0.5)
+    ccunit.eq(music.isPlaying(), false, "stopped again: paused")
+    ccunit.truthy(cab.S.wantMusic, "still wanted, only paused")
   end)
 end, { timeout = 15 })
 

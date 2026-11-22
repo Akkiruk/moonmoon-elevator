@@ -911,6 +911,7 @@ function E:carState(name)
     next = c.target and self.floors[c.target] or nil,
     reason = c.latched or c.fault,
     music = c.music, -- repeated here so a cab that restarts picks the music back up
+    moving = (c.moving and (c.vcmd or 0) ~= 0) or false,
   }
 end
 
