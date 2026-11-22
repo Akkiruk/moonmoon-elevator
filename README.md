@@ -4,7 +4,19 @@ ComputerCraft controller for two Create Aeronautics elevators (CC:Tweaked 1.120.
 
 - hub/: the machine-room computer that runs the cars
 - cab/: the computer on top of each car (display, chimes, music)
-- tools/: PC-side helpers (audio conversion)
+- tools/: PC-side helpers (audio conversion, the update manifest)
+- update/: the self-updater every computer runs
+
+## Updates
+
+Every computer runs `update.lua` from its startup. At boot and every 10 minutes it reads `manifest.json` from this
+repo's main branch and downloads any of its files whose sha changed, then reboots once it's idle: the hub waits until
+every car is parked with its brake on, a cab until its car stands still. A failed check or download changes nothing.
+
+To ship a fix: change the code, run `node tools/manifest.mjs`, commit and push. Run `update <role>` on a computer to
+force it (roles: hub, cab, doorsensor, landing, panel, inspect, plaque, cw); `/update.log` shows what it installed.
+Local files (floor.txt, car.txt, .settings, the music) are never in the manifest. `update music <url>` fetches a
+track folder (list.txt plus parts) from any web space into the cab's `/tracks/sins`.
 
 ## Cab music
 
@@ -14,8 +26,9 @@ In the cab program: `parallel.waitForAny(music.run, display, rednetLoop)`, then 
 
 ### The track (fits on the cab computer)
 
-All of Sins (171.75 s) is in `cab/tracks/sins/`: 15 Ogg Vorbis parts of 12 s (mono, 48 kHz, about 39 kbit/s) and a
-`list.txt`, 896 KB in all, so it fits the 1,000,000-byte disk with the code and needs no config change. The pack's
+All of Sins (171.75 s) goes in the cab's `tracks/sins/`: 15 Ogg Vorbis parts of 12 s (mono, 48 kHz, about 39 kbit/s)
+and a `list.txt`, 896 KB in all, so it fits the 1,000,000-byte disk with the code and needs no config change. The song
+isn't ours to publish, so it's not in this repo: make it from the mod jar (see "Making the track" below). The pack's
 cc-audio-expand mod decodes each part in Java (`cc.audio.ogg`) and `speaker.playAudioEx` plays the 16-bit samples, so
 Lua does no work per sample. `play` with no argument plays it.
 
