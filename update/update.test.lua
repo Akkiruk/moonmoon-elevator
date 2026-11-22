@@ -92,3 +92,18 @@ ccunit.test("files the manifest doesn't list are never touched", function()
   ccunit.eq(read("/floor.txt"), "G")
   fs.delete("/floor.txt")
 end, { timeout = 10 })
+
+ccunit.test("update music pulls a track folder from any url", function()
+  serve({
+    ["song/list.txt"] = "01.ogg 0 100\n02.ogg 0 100\n",
+    ["song/01.ogg"] = "AAAA", ["song/02.ogg"] = "BBBB",
+  })
+  local ok, why = update.music("https://x/song", "/tmp_tracks")
+  ccunit.truthy(ok, why)
+  ccunit.eq(read("/tmp_tracks/02.ogg"), "BBBB")
+  ccunit.truthy(read("/tmp_tracks/list.txt"):find("01.ogg"))
+  update.timeout = 4
+  served["song/02.ogg"] = nil
+  ccunit.eq(update.music("https://x/song/", "/tmp_tracks"), false, "a missing part fails")
+  fs.delete("/tmp_tracks")
+end, { timeout = 10 })

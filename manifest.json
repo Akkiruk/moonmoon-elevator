@@ -39,7 +39,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "cab": {
@@ -61,7 +61,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "doorsensor": {
@@ -75,7 +75,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "landing": {
@@ -89,7 +89,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "panel": {
@@ -103,7 +103,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "inspect": {
@@ -117,7 +117,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "plaque": {
@@ -131,7 +131,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   },
   "cw": {
@@ -145,7 +145,7 @@
    },
    "update.lua": {
     "src": "update/update.lua",
-    "sha": "90817127f1a1"
+    "sha": "919e2e9c3d73"
    }
   }
  }

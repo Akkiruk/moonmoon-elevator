@@ -2,7 +2,9 @@
 -- whose sha differs from the one it last installed gets downloaded again. Local files (floor.txt, car.txt,
 -- .settings, the music) are never in the manifest, so they're never touched.
 --
---   update                 check now, install what changed and reboot if anything did
+--   update <role>          check now, install what changed and reboot if anything did
+--   update music <url>     download a music track folder (list.txt plus its parts) from your own web space
+--                          into /tracks/sins; the song isn't in the public repo
 --   update.boot(role)      the same at startup, but a failure never stops the program from starting
 --   update.watch(role)     background loop: checks every so often and reboots once the computer is idle
 --
@@ -109,7 +111,39 @@ function M.watch(role)
   end
 end
 
+-- Fetch a track folder made by tools/to-ogg.mjs: <url>/list.txt, then each part it names. Parts are written one
+-- at a time over the old ones, because the cab's disk can't hold two copies of the song.
+function M.music(url, dir)
+  url = url:gsub("/*$", "/")
+  dir = dir or "/tracks/sins"
+  local list, err = M.fetch(url .. "list.txt")
+  if not list then return false, "list.txt: " .. tostring(err) end
+  local names = {}
+  for line in list:gmatch("[^\r\n]+") do
+    local name = line:match("^(%S+)")
+    if name then names[#names + 1] = name end
+  end
+  if #names == 0 then return false, "list.txt names no parts" end
+  fs.makeDir(dir)
+  for i, name in ipairs(names) do
+    M.timeout = 30 -- a part is around 60 KB
+    local body, why = M.fetch(url .. name)
+    if not body then return false, name .. ": " .. tostring(why) end
+    local h = fs.open(dir .. "/" .. name, "wb"); h.write(body); h.close()
+    print(("  %d/%d %s"):format(i, #names, name))
+  end
+  local h = fs.open(dir .. "/list.txt", "w"); h.write(list); h.close()
+  return true
+end
+
 if select("#", ...) > 0 and (...) == "update" then return M end
+if (...) == "music" then
+  local url = select(2, ...)
+  if not url then print("usage: update music <url of the folder holding list.txt>") return end
+  local ok, why = M.music(url)
+  print(ok and "music installed, reboot the cab to play it" or ("failed: " .. why))
+  return
+end
 local role = ...
 if not role then
   local f = fs.exists("/role.txt") and fs.open("/role.txt", "r")
