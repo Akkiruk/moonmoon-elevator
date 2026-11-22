@@ -9,7 +9,7 @@
 --   mmlift.car      "A" or "B" (the car name; also read from /car.txt)
 --   mmlift.hub      optional computer id of the hub; unset = broadcast
 --   mmlift.track    music track folder, .dfpwm file or URL, default /tracks/sins
---   mmlift.volume   music volume 0..3, default 1
+--   mmlift.volume   music volume 0..3, default 0.35 (above 1 it also carries further)
 --   mmlift.doorSide side where the door-sensor computer's redstone arrives (default "left")
 --   mmlift.silence  seconds without a hub state before "Out of Order", default 5
 local music = require "music"
@@ -21,7 +21,7 @@ M.config = {
   car = nil,
   hub = nil,
   track = "/tracks/sins",
-  volume = 1,
+  volume = 0.35,
   silence = 5,
   posPeriod = 0.1,
   gpsTimeout = 0.15, -- host replies land within a tick; a fix that hasn't resolved by now won't

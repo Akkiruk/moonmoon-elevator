@@ -8,23 +8,28 @@
 -- The other functions just change settings and wake it, so call them from anywhere.
 --
 -- A track folder is Ogg Vorbis parts plus list.txt (tools/to-ogg.mjs makes one). It needs the cc-audio-expand mod:
--- cc.audio.ogg decodes a part in Java and speaker.playAudioEx takes the 16-bit samples as a string, so Lua never
--- touches a sample. DFPWM files are decoded here in Lua instead, which costs real CPU on a shared computer thread.
+-- cc.audio.ogg decodes a part in Java and speaker.playAudioEx takes the samples as a string, so Lua never touches a
+-- sample (apart from a short fade at each end of a packet). DFPWM files are decoded here in Lua instead, which costs
+-- real CPU on a shared computer thread.
 --
--- Why every packet is exactly 1.35 s and playback starts with a short silent packet: the cab is on a Sable
+-- Ogg packets are 8-bit: playAudioEx takes at most 131072 bytes, mono, 48 kHz only, so 8-bit gets 2.7 s a packet
+-- where 16-bit gets 1.35 s. Fewer joins was worth more than the extra bits.
+--
+-- Why every packet is a whole number of ticks and playback starts with a short silent packet: the cab is on a Sable
 -- sub-level. Sable wraps each sound played there in its own object, so the speaker's client code never finds its
 -- sound again (isActive is always false) and every packet starts as a new sound the moment it arrives. The server
 -- sends a packet 0.5 s before it thinks the last one ends, so packets overlapped by half a second and the old one's
 -- cleanup wiped the new one's queue. The silent packet is 0.525 s, which puts the server's clock 0.5 s ahead
--- of the real audio, so from then on each packet arrives as the last one ends; 1.35 s is 27 ticks, which keeps
--- the send times halfway between ticks. Off a sub-level this costs half a second of silence at the start.
+-- of the real audio, so from then on each packet arrives as the last one ends; whole ticks keep the send times
+-- halfway between ticks. Off a sub-level this costs half a second of silence at the start.
 local dfpwm = require "cc.audio.dfpwm"
 
-local SAMPLES = 64800 -- per packet: 1.35 s
-local PACKET = SAMPLES * 2 -- bytes of 16-bit audio per playAudioEx call (it takes up to 131072)
-local CHUNK = SAMPLES / 8 -- bytes of DFPWM per playAudio call (cc-audio-expand's playAudio takes up to 65536 samples)
+local PACKET = 129600 -- samples (and bytes) of 8-bit audio per playAudioEx call: 2.7 s
+local SAMPLES = 64800 -- per DFPWM playAudio call: 1.35 s (cc-audio-expand's playAudio takes up to 65536)
+local CHUNK = SAMPLES / 8 -- bytes of DFPWM per call
 local LEAD = 25200 -- samples in the silent packet: 0.525 s
-local PIECE = 512 -- DFPWM bytes decoded between yields
+local FADE = 96 -- samples faded in and out at each end of an Ogg packet (2 ms), so a join can't click
+local PIECE = 256 -- DFPWM bytes decoded between yields
 local RETRY = 10 -- seconds to wait when neither the source nor the fallback opens
 
 -- A file named like sins.24k.dfpwm holds 24000 samples/s (16k works too); it is decoded and stretched back to
@@ -185,7 +190,7 @@ local function feeder(speaker, gen, push, silence)
         -- fresh start, or we were so late the server will start over: the silent packet sets it up again
         if push(silence) then st.ends = now + LEAD / 48 else waitSpace() end
       elseif push(packet) then
-        st.ends = math.max(now, st.ends) + SAMPLES / 48
+        st.ends = math.max(now, st.ends) + #packet / 48 -- one byte or table entry per sample
         return true
       else
         waitSpace()
@@ -195,30 +200,46 @@ local function feeder(speaker, gen, push, silence)
   end
 end
 
+-- Ramp the first and last FADE samples of an 8-bit packet.
+local function fade(s)
+  local function ramp(from, gain)
+    local b = { s:byte(from, from + FADE - 1) }
+    for i = 1, FADE do
+      local v = b[i] >= 128 and b[i] - 256 or b[i]
+      v = math.floor(v * gain(i) + 0.5)
+      b[i] = v < 0 and v + 256 or v
+    end
+    return string.char(table.unpack(b))
+  end
+  return ramp(1, function(i) return (i - 1) / FADE end)
+    .. s:sub(FADE + 1, -FADE - 1)
+    .. ramp(#s - FADE + 1, function(i) return (FADE - i) / FADE end)
+end
+
 -- Play an Ogg track folder to its end. Returns early (false) when the settings change.
 local function playParts(track, gen)
   local speaker = getSpeaker()
   local ogg = require "cc.audio.ogg"
   local send = feeder(speaker, gen, function(s)
-    return speaker.playAudioEx(s, { format = "pcm_s16le", volume = st.volume })
-  end, ("\0"):rep(LEAD * 2))
+    return speaker.playAudioEx(s, { format = "pcm_s8", volume = st.volume })
+  end, ("\0"):rep(LEAD))
   local rest = "" -- packets run on across parts, so every one is a full 1.35 s
   for _, p in ipairs(track.parts) do
     local f = fs.open(p.file, "rb")
     if not f then error("missing " .. p.file) end
     local data = f.readAll()
     f.close()
-    local pcm, info = ogg.decode(data)
+    local pcm, info = ogg.decode(data, { output = "pcm_s8" })
     assert(info.sampleRate == 48000 and info.channels == 1, p.file .. " must be mono 48 kHz")
-    pcm = rest .. pcm:sub(p.skip * 2 + 1, (p.skip + p.keep) * 2)
+    pcm = rest .. pcm:sub(p.skip + 1, p.skip + p.keep)
     local i = 1
     while #pcm - i + 1 >= PACKET do
-      if not send(pcm:sub(i, i + PACKET - 1)) then stopFor(speaker, gen); return false end
+      if not send(fade(pcm:sub(i, i + PACKET - 1))) then stopFor(speaker, gen); return false end
       i = i + PACKET
     end
     rest = pcm:sub(i)
   end
-  if #rest > 0 and not send(rest .. ("\0"):rep(PACKET - #rest)) then stopFor(speaker, gen); return false end
+  if #rest > 0 and not send(fade(rest .. ("\0"):rep(PACKET - #rest))) then stopFor(speaker, gen); return false end
   return true
 end
 
