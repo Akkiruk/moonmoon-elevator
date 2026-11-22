@@ -3,7 +3,8 @@
 --   cab                      run the cab program (startup.lua does this at boot)
 --   local cab = require "cab"   in a test: returns the module without running it
 --
--- Hardware: wireless modem on top, advanced monitor (2x1) below, speaker on the right, all found by type.
+-- Hardware: wireless modem on top, advanced monitor (2x1) below, speaker on the right, all found by type. A second
+-- speaker on the back makes the music crossfade between the two (no tick at the joins, see music.lua).
 --
 -- Settings (`set mmlift.car B` then reboot), or a first line in /car.txt:
 --   mmlift.car      "A" or "B" (the car name; also read from /car.txt)
