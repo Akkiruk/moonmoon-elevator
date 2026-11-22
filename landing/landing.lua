@@ -264,9 +264,23 @@ function M.renderStation(w, h)
   return c
 end
 
+-- Which monitor is which: named ones first, then a wide one (2x1 or wider) is the indicator and anything else the
+-- call station. A lone 1x1 or 1x2 is a call station, so a hall computer with just the shared call button works,
+-- and a landing whose call panel was taken off keeps its indicator.
+function M.pickMonitors(mons, indName, staName)
+  local ind, sta
+  table.sort(mons, function(a, b) return a.w / a.h > b.w / b.h end)
+  for _, m in ipairs(mons) do if m.name == indName then ind = m elseif m.name == staName then sta = m end end
+  for _, m in ipairs(mons) do
+    if m ~= ind and m ~= sta then
+      if not ind and not indName and m.w >= 2.5 * m.h then ind = m
+      elseif not sta and not staName then sta = m end
+    end
+  end
+  return ind, sta
+end
+
 local function wrapMonitors()
-  M.ind, M.sta = nil, nil
-  local indName, staName = M.config.indicator, M.config.callpanel
   local mons = {}
   for _, name in ipairs(peripheral.getNames()) do
     if peripheral.getType(name) == "monitor" then
@@ -276,14 +290,7 @@ local function wrapMonitors()
       mons[#mons + 1] = { name = name, win = window.create(mon, 1, 1, w, h, true), w = w, h = h }
     end
   end
-  -- named ones first, then the widest one is the indicator and the next one the call station
-  table.sort(mons, function(a, b) return a.w / a.h > b.w / b.h end)
-  for _, m in ipairs(mons) do if m.name == indName then M.ind = m elseif m.name == staName then M.sta = m end end
-  for _, m in ipairs(mons) do
-    if m ~= M.ind and m ~= M.sta then
-      if not M.ind and not indName then M.ind = m elseif not M.sta and not staName then M.sta = m end
-    end
-  end
+  M.ind, M.sta = M.pickMonitors(mons, M.config.indicator, M.config.callpanel)
 end
 
 -- Lamp block next to the computer: mmlift.lamp is a side (or a list of sides); unset means every side with

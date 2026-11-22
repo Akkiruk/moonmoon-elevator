@@ -85,7 +85,21 @@
    },
    "landing.lua": {
     "src": "landing/landing.lua",
-    "sha": "520e3de37510"
+    "sha": "4640442b01d4"
+   },
+   "update.lua": {
+    "src": "update/update.lua",
+    "sha": "9699ccc151cd"
+   }
+  },
+  "hall": {
+   "startup.lua": {
+    "src": "hall/startup.lua",
+    "sha": "0005b6bad728"
+   },
+   "landing.lua": {
+    "src": "landing/landing.lua",
+    "sha": "4640442b01d4"
    },
    "update.lua": {
     "src": "update/update.lua",

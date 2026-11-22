@@ -14,9 +14,23 @@ repo's main branch and downloads any of its files whose sha changed, then reboot
 every car is parked with its brake on, a cab until its car stands still. A failed check or download changes nothing.
 
 To ship a fix: change the code, run `node tools/manifest.mjs`, commit and push. Run `update <role>` on a computer to
-force it (roles: hub, cab, doorsensor, landing, panel, inspect, plaque, cw); `/update.log` shows what it installed.
+force it (roles: hub, cab, doorsensor, landing, hall, panel, inspect, plaque, cw); `/update.log` shows what it installed.
 Local files (floor.txt, car.txt, .settings, the music) are never in the manifest. `update music <url>` fetches a
 track folder (list.txt plus parts) from any web space into the cab's `/tracks/sins`.
+
+## Shared call button (one per floor, between the lifts)
+
+Each floor can have one call button in the middle in place of the two beside the doors. Per floor:
+
+1. Put a monitor where the button goes (1x1 is fine; 1x2 shows Up above Down) and an advanced computer touching it,
+   with an ender modem on the computer.
+2. Open the computer, paste this and press Enter:
+   `wget run https://raw.githubusercontent.com/Akkiruk/moonmoon-elevator/main/update/install.lua`
+3. It says which floor it thinks it's on (from GPS): Enter if that's right, or type the floor. It installs and
+   reboots, and from then on it updates itself like the others.
+
+Either car answers it. Break the old call monitors beside the doors whenever you like: the landing computers keep
+their floor displays and carry on without them.
 
 ## Cab music
 

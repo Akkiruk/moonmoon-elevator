@@ -18,6 +18,7 @@ const roles = {
   cab: { "startup.lua": "cab/startup.lua", "cab.lua": "cab/cab.lua", "music.lua": "cab/music.lua", "play.lua": "cab/play.lua" },
   doorsensor: { "startup.lua": "doorsensor/startup.lua", "doorsensor.lua": "cab/doorsensor.lua" },
   landing: { "startup.lua": "landing/startup.lua", "landing.lua": "landing/landing.lua" },
+  hall: { "startup.lua": "hall/startup.lua", "landing.lua": "landing/landing.lua" },
   panel: { "startup.lua": "panel/startup.lua", "panel.lua": "panel/panel.lua" },
   inspect: { "startup.lua": "inspect/startup.lua", "inspect.lua": "inspect/inspect.lua" },
   plaque: { "startup.lua": "plaque/startup.lua", "plaque.lua": "plaque/plaque.lua" },
