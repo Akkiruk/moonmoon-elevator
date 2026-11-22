@@ -305,6 +305,7 @@ local function handle(msg)
     S.state = st
     S.lastState = os.clock()
     S.silent = false
+    if msg.music == "play" then S.wantMusic = true elseif msg.music == "stop" then S.wantMusic = false end
     M.applyMusic()
     wakeDraw()
   elseif t == "chime" then
