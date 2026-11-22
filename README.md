@@ -32,6 +32,17 @@ Each floor can have one call button in the middle in place of the two beside the
 Either car answers it. Break the old call monitors beside the doors whenever you like: the landing computers keep
 their floor displays and carry on without them.
 
+## Moving the GPS computers
+
+The cars find their height by GPS, so the four GPS computers have to keep running. To hide them (underground is
+best: ender modems reach any depth), add the new ones before removing the old: an advanced computer with an ender
+modem in each new spot, then on it
+
+`wget run https://raw.githubusercontent.com/Akkiruk/moonmoon-elevator/main/update/install.lua gps`
+
+It asks the running GPS where it is, saves that exact spot and starts hosting. Spread the four out and put them at
+different depths (not all on one flat level). Once all four are up, break the old ones.
+
 ## Cab music
 
 `cab/music.lua` is the player module, `cab/play.lua` a small program that uses it (`play [url-or-path] [volume]`).

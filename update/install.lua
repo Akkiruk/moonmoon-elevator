@@ -50,6 +50,18 @@ end
 function M.install(role, read_, locate)
   role = role or "hall"
   pcall(function() peripheral.find("modem", function(n) if not rednet.isOpen(n) then rednet.open(n) end return true end) end)
+  if role == "gps" then
+    -- a GPS host has to announce exactly where it is: ask the GPS that's running now and keep that for good,
+    -- so the old hosts can go once four of these are up
+    local ok, x, y, z = pcall(locate or gps.locate, 5)
+    if not ok or not x then return false, "no GPS answer: leave the old GPS computers running until this one's set up" end
+    x, y, z = math.floor(x + 0.5), math.floor(y + 0.5), math.floor(z + 0.5)
+    local f = fs.open("/startup.lua", "w")
+    f.writeLine(("shell.run(\"gps\", \"host\", %d, %d, %d)"):format(x, y, z))
+    f.close()
+    pcall(os.setComputerLabel, "gps")
+    return true, ("gps at %d %d %d"):format(x, y, z)
+  end
   local floor
   if role == "hall" or role == "landing" then
     floor = M.askFloor(read_, locate)
@@ -75,6 +87,6 @@ local role = ...
 print("Elevator setup: " .. (role or "hall"))
 local ok, info = M.install(role)
 if not ok then print("Failed: " .. tostring(info)) return end
-print("Installed" .. (info and (" for floor " .. info) or "") .. ", rebooting")
+print("Installed" .. (info and (role == "gps" and (": " .. info) or (" for floor " .. info)) or "") .. ", rebooting")
 sleep(1)
 os.reboot()
