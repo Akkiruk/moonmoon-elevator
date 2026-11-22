@@ -247,6 +247,9 @@ function E:safety(c, ci)
   end
 end
 
+-- door hold: open and stay open until it runs out or close is pressed
+local function holding(self, c) return c.holdUntil ~= nil and self.now < c.holdUntil end
+
 function E:carCall(c, i)
   if not i then return end
   local mode = c.mode
@@ -262,7 +265,7 @@ function E:carCall(c, i)
   local t = self.cfg.timing
   -- a floor button closes the doors soon, but a fresh stop still gets its stopDwell
   local d = c.door
-  if t.carCallDwell and d.state == "open" then
+  if t.carCallDwell and d.state == "open" and not holding(self, c) then
     local soonest = math.max(self.now + t.carCallDwell, (d.openedAt or 0) + (t.stopDwell or 0))
     if d.dwellUntil > soonest then d.dwellUntil = soonest end
   end
@@ -285,7 +288,9 @@ function E:handleEvent(ev)
   if ev.type == "call" then
     self:carCall(c, self:floorIndex(ev.floor))
   elseif ev.type == "door" then
-    if ev.cmd == "open" then c.openPress = true elseif ev.cmd == "close" then c.closePress = true end
+    if ev.cmd == "open" then c.openPress = true
+    elseif ev.cmd == "close" then c.closePress = true
+    elseif ev.cmd == "hold" then c.holdPress = true end
   elseif ev.type == "alarm_button" then
     c.alarmUntil = math.max(c.alarmUntil, self.now + t.alarmButtonSeconds)
   elseif ev.type == "keycard" then
@@ -446,8 +451,16 @@ function E:doorStep(c, ci, policy)
   local now = self.now
   local canOpen = c.atFloor ~= nil and not c.moving
   local openReq = c.openReq
-  local openPress, closePress = c.openPress, c.closePress
-  c.openReq, c.openPress, c.closePress = nil, nil, nil
+  local openPress, closePress, holdPress = c.openPress, c.closePress, c.holdPress
+  c.openReq, c.openPress, c.closePress, c.holdPress = nil, nil, nil, nil
+  -- a hold only lives in normal service: any other door policy (fire, lockdown, inspection...) ends it
+  if policy ~= "auto" then c.holdUntil = nil end
+  if holdPress and policy == "auto" and canOpen then c.holdUntil = now + (t.doorHold or 60) end
+  if closePress and c.holdUntil then
+    -- back to an ordinary stop, so a close pressed while they're still opening isn't left waiting out the hold
+    c.holdUntil = nil
+    d.dwellUntil, d.cut = now, nil
+  end
 
   if openPress and policy == "auto" and canOpen then
     d.presses = d.presses + 1
@@ -468,7 +481,11 @@ function E:doorStep(c, ci, policy)
     if closePress and (st == "open" or st == "opening") and not ci.blocked then doorTo(self, c, "closing") end
   else -- auto
     local dwell = queued(self, c) and t.stopDwell or t.doorDwell
-    if (openReq or openPress) and canOpen then
+    if holding(self, c) and canOpen then
+      if st == "closed" or st == "closing" then doorTo(self, c, "opening") end
+      d.dwellUntil = math.max(d.dwellUntil, c.holdUntil)
+      d.cut = true
+    elseif (openReq or openPress) and canOpen then
       if st == "closed" or st == "closing" then
         d.dwellUntil = now + dwell
         doorTo(self, c, "opening")
@@ -929,6 +946,7 @@ function E:panelState(name)
     mode = c.mode or "normal",
     firefighter = c.mode == "firefighter",
     fireKeyAllowed = self.now ~= nil and self:fireKeyAllowed(c),
+    hold = self.now ~= nil and c.mode == "normal" and holding(self, c),
   }
 end
 

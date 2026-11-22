@@ -11,7 +11,7 @@
    },
    "elevator.lua": {
     "src": "hub/elevator.lua",
-    "sha": "3b08e347f222"
+    "sha": "4c349af50ad0"
    },
    "hw.lua": {
     "src": "hub/hw.lua",
@@ -19,7 +19,7 @@
    },
    "config.lua": {
     "src": "hub/config.lua",
-    "sha": "bd06e6181f56"
+    "sha": "acc6e2bf8d80"
    },
    "counterweight.lua": {
     "src": "hub/counterweight.lua",
@@ -99,7 +99,7 @@
    },
    "panel.lua": {
     "src": "panel/panel.lua",
-    "sha": "2fe34fa49484"
+    "sha": "ef94510f9b12"
    },
    "update.lua": {
     "src": "update/update.lua",

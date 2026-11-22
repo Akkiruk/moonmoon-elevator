@@ -4,12 +4,12 @@
 --   panel                      run it (startup.lua does this at boot)
 --   local panel = require "panel"   in a test: returns the module without running it
 --
--- Sends: call {floor}, door {cmd="open"|"close"}, alarm_button, firefighter {on}, keycard (rising edge of the reader's redstone input),
--- hello {role="panel"}. Listens for the hub's panel {lit, locked, keycard_window, mode, firefighter, fireKeyAllowed}.
--- Without a panel message for `silence` seconds it shows Out of Order and sends nothing.
+-- Sends: call {floor}, door {cmd="open"|"close"|"hold"}, alarm_button, firefighter {on}, keycard (rising edge of the
+-- reader's redstone input), hello {role="panel"}. Listens for the hub's panel {lit, keycard_window, mode, firefighter,
+-- fireKeyAllowed, hold}. Without a panel message for `silence` seconds it shows Out of Order and sends nothing.
 --
 -- Settings: mmlift.car (or /car.txt), mmlift.hub (optional hub id), mmlift.keycardSide (default "back"),
--- mmlift.silence (default 5), mmlift.keyFloors (default L1, L2: the floors that need the card).
+-- mmlift.silence (default 5).
 
 local PROTO = "mmlift"
 local M = {}
@@ -17,8 +17,8 @@ local M = {}
 M.config = {
   car = nil, hub = nil, keycardSide = "back", silence = 5, scale = 0.5,
   floors = { "L1", "L2", "P3", "P2", "P1", "G", "2", "3", "4", "5", "6" }, -- bottom to top
-  keyFloors = { L1 = true, L2 = true },
   flash = 0.25,
+  press = 1,       -- a floor press shows lit this long, then follows the hub
 }
 
 function M.send(msg)
@@ -33,8 +33,8 @@ function M.cardInput() return redstone.getInput(M.config.keycardSide) end
 
 local S
 function M.reset()
-  S = { lit = {}, locked = {}, window = false, mode = "normal", lastPanel = nil, boot = os.clock(),
-        silent = false, flash = nil, card = false }
+  S = { lit = {}, window = false, mode = "normal", lastPanel = nil, boot = os.clock(),
+        silent = false, flash = nil, card = false, pressed = {}, hold = false }
   M.S = S
 end
 M.reset()
@@ -51,8 +51,6 @@ local function loadConfig()
   c.hub = c.hub or settings.get("mmlift.hub")
   c.keycardSide = settings.get("mmlift.keycardSide") or c.keycardSide
   c.silence = settings.get("mmlift.silence") or c.silence
-  local kf = settings.get("mmlift.keyFloors")
-  if type(kf) == "table" then c.keyFloors = {}; for _, f in ipairs(kf) do c.keyFloors[f] = true end end
 end
 
 ------------------------------------------------------------------------ drawing
@@ -97,36 +95,44 @@ local BANNER = {
   out_of_order = { "OUT OF ORDER", colors.red, colors.white },
 }
 
--- Button layout for a w x h panel (15 x 24 on a 1x2 monitor at scale 0.5). Returns the list of buttons.
+-- Button layout for a w x h panel (15 x 24 on a 1x2 monitor at scale 0.5), drawn like a real car panel: a black
+-- label with a round steel button beside it, three to a row, floors counting up left to right from the bottom.
+-- Each button: x1..x2 / y1..y2 is the touch area, lx..lx2 the label, bx..bx2 the button cap, label on row y1 + 1.
 function M.layout(w, h)
   local list = {}
-  local n = #M.config.floors
-  local slots = math.ceil(n / 2)
-  local bw = math.floor((w - 1) / 2)             -- 7
-  local x0 = 1 + math.floor((w - (bw * 2 + 1)) / 2)
-  local gridBottom = h - 4                       -- the door row takes the last 4
-  for i, f in ipairs(M.config.floors) do
-    local row = math.ceil(i / 2)                 -- 1 = bottom row
-    local col = (i - 1) % 2
-    local y2 = gridBottom - (row - 1) * 3
-    local x1 = x0 + col * (bw + 1)
-    list[#list + 1] = { id = f, kind = "floor", x1 = x1, x2 = x1 + bw - 1, y1 = y2 - 2, y2 = y2 }
+  local floors = M.config.floors
+  local cols = 3
+  local rows = math.ceil(#floors / cols)
+  local cw = math.floor(w / cols)                -- 5: label 2, button 2, gap 1
+  local gridTop = 4
+  local function slot(id, kind, col, row)       -- row 1 = top row
+    local x = 1 + (col - 1) * cw
+    local y = gridTop + (row - 1) * 3
+    return { id = id, kind = kind, x1 = x, x2 = x + 3, y1 = y, y2 = y + 2, lx = x, lx2 = x + 1, bx = x + 2, bx2 = x + 3 }
   end
-  local fy1 = h - 2
-  local fw = 4
-  local gap = 1
-  local fx = 1 + math.floor((w - (fw * 3 + gap * 2)) / 2)
-  for _, k in ipairs({ { "open", "<|>" }, { "close", ">|<" }, { "alarm", "(!)" } }) do
-    list[#list + 1] = { id = k[1], kind = k[1] == "alarm" and "alarm" or "door", label = k[2],
-                        x1 = fx, x2 = fx + fw - 1, y1 = fy1, y2 = fy1 + 2 }
-    fx = fx + fw + gap
+  for i, f in ipairs(floors) do
+    local r = math.ceil(i / cols)
+    list[#list + 1] = slot(f, "floor", (i - 1) % cols + 1, rows - r + 1)
   end
+  -- door and alarm rows under the floors: a wider label on the left, its button beside it
+  local function wide(id, kind, label, right, y)
+    local lw = #label
+    local bx = right and (w - 2) or (1 + lw)
+    local lx = right and (bx - lw) or 1
+    return { id = id, kind = kind, label = label, x1 = lx, x2 = bx + 1, y1 = y, y2 = y + 2, lx = lx, lx2 = lx + lw - 1,
+             bx = bx, bx2 = bx + 1 }
+  end
+  local dy = gridTop + rows * 3 + 1
+  list[#list + 1] = wide("open", "door", "\17|\16", false, dy)
+  list[#list + 1] = wide("close", "door", "\16|\17", true, dy)
+  list[#list + 1] = wide("alarm", "alarm", "(!)", false, dy + 4)
+  list[#list + 1] = wide("hold", "door", "HOLD", true, dy + 4)
   if M.fireVisible() then
-    -- the free slot next to the top floor button
-    local top
-    for _, b in ipairs(list) do if b.kind == "floor" and (not top or b.y1 < top.y1) then top = b end end
-    list[#list + 1] = { id = "firefighter", kind = "fire", x1 = top.x1 + bw + 1, x2 = top.x1 + 2 * bw, y1 = top.y1,
-                        y2 = top.y2 }
+    -- the free slot after the top floor, else at the top right
+    local n = #floors
+    local col = n % cols + 1
+    if n % cols == 0 then col = cols end
+    list[#list + 1] = slot("firefighter", "fire", col, 1)
   end
   return list
 end
@@ -136,17 +142,31 @@ function M.fireVisible()
   return not S.silent and (S.firefighter or S.fireKey) and true or false
 end
 
--- What a floor button looks like: "lit", "dead" or "idle"; keyed floors also show "keyed" (locked) or "open".
+-- What a floor button looks like: "lit", "dead" (no hub) or "idle". A press lights it straight away; if the hub
+-- doesn't take the call (locked floor, no card) it goes dark again when the press runs out.
 function M.buttonState(f)
-  local dead = S.silent or S.locked[f]
-  local key = M.config.keyFloors[f]
-  if key and not S.window then dead = true end
-  local look = dead and "dead" or (S.lit[f] and "lit" or "idle")
-  return look, key and (dead and "locked" or "open") or nil
+  if S.silent then return "dead" end
+  local pressed = S.pressed[f] and os.clock() < S.pressed[f]
+  return (S.lit[f] or pressed) and "lit" or "idle"
+end
+
+local LABEL = { G = "*G" }   -- the star on the main floor
+
+-- a round cap on the label's row: two cells of teletext drawing a 4x3 disc (.XX. / XXXX / .XX.).
+-- The left cell needs its bottom-right pixel set, so it is drawn inverted.
+local function cap(c, bt, face, panel)
+  put(c, bt.bx, bt.y1 + 1, "\145", panel, face)
+  put(c, bt.bx2, bt.y1 + 1, "\157", face, panel)
+end
+
+-- the pill runs under the cap too, like the reference panel
+local function label(c, bt, s, fg, bg)
+  fill(c, bt.lx, bt.y1 + 1, bt.bx2, bt.y1 + 1, bg)
+  center(c, bt.y1 + 1, s, fg, bg, bt.lx, bt.lx2)
 end
 
 function M.render(w, h)
-  local c = canvas(w, h, colors.black)
+  local c = canvas(w, h, colors.lightGray)
   local mode = S.silent and "out_of_order" or S.mode
   local b = BANNER[mode] or BANNER.normal
   fill(c, 1, 1, w, 1, b[2])
@@ -157,48 +177,31 @@ function M.render(w, h)
   elseif mode == "normal" then sub = "Select floor"
   elseif mode == "inspection" then sub = "Maintenance"
   elseif mode ~= "emergency" then sub = "Use stairs" else sub = "Stay calm" end
+  fill(c, 1, 2, w, 2, colors.black)
   center(c, 2, sub, subfg, colors.black)
 
+  local dim = S.silent
+  local steel = colors.lightGray
   for _, bt in ipairs(M.layout(w, h)) do
     local flashing = S.flash and S.flash.id == bt.id and os.clock() < S.flash.untilT
+    local face = dim and colors.gray or colors.white
+    local tx = dim and colors.gray or colors.white
     if bt.kind == "floor" then
-      local look, key = M.buttonState(bt.id)
-      local top, mid, bot, tx, mark
-      if look == "lit" then top, mid, bot, tx = colors.yellow, colors.orange, colors.brown, colors.black
-      elseif look == "dead" then top, mid, bot, tx = colors.gray, colors.gray, colors.black, colors.lightGray
-      else top, mid, bot, tx = colors.white, colors.lightGray, colors.gray, colors.black end
-      if flashing then top, mid, bot, tx = colors.white, colors.yellow, colors.orange, colors.black end
-      fill(c, bt.x1, bt.y1, bt.x2, bt.y1, top)
-      fill(c, bt.x1, bt.y1 + 1, bt.x2, bt.y1 + 1, mid)
-      fill(c, bt.x1, bt.y2, bt.x2, bt.y2, bot)
-      center(c, bt.y1 + 1, bt.id, tx, mid, bt.x1, bt.x2)
-      if key == "locked" then
-        center(c, bt.y2, "LOCKED", colors.red, bot, bt.x1, bt.x2)
-        put(c, bt.x1, bt.y1 + 1, "\7", colors.red, mid)
-      elseif key == "open" then
-        center(c, bt.y2, "OPEN", colors.lime, bot, bt.x1, bt.x2)
-        put(c, bt.x1, bt.y1 + 1, "\7", colors.green, mid)
-      end
+      if M.buttonState(bt.id) == "lit" then face = colors.yellow end
+      label(c, bt, LABEL[bt.id] or bt.id, tx, colors.black)
+      if LABEL[bt.id] and not dim then put(c, bt.lx, bt.y1 + 1, "*", colors.yellow, colors.black) end
     elseif bt.kind == "fire" then
-      -- a key switch: red when off, amber when the firefighter service is on
-      local on = S.firefighter
-      local top, mid, bot, tx = colors.red, colors.red, colors.brown, colors.white
-      if on then top, mid, bot, tx = colors.yellow, colors.orange, colors.brown, colors.black end
-      if flashing then top, mid, bot, tx = colors.white, colors.yellow, colors.orange, colors.black end
-      fill(c, bt.x1, bt.y1, bt.x2, bt.y1, top)
-      fill(c, bt.x1, bt.y1 + 1, bt.x2, bt.y1 + 1, mid)
-      fill(c, bt.x1, bt.y2, bt.x2, bt.y2, bot)
-      center(c, bt.y1, "FIRE", tx, top, bt.x1, bt.x2)
-      center(c, bt.y1 + 1, "(o)=\16", tx, mid, bt.x1, bt.x2)  -- key head and blade
-      center(c, bt.y2, on and "ON" or "KEY", tx, bot, bt.x1, bt.x2)
+      -- the firefighter key switch: a red label, the cap amber while the service is on
+      face = S.firefighter and colors.yellow or colors.white
+      label(c, bt, "FS", colors.white, colors.red)
     else
-      local bg, fgc = colors.gray, colors.white
-      if bt.kind == "alarm" then bg = colors.red end
-      if S.silent then bg, fgc = colors.gray, colors.lightGray end
-      if flashing then bg, fgc = colors.yellow, colors.black end
-      fill(c, bt.x1, bt.y1, bt.x2, bt.y2, bg)
-      center(c, bt.y1 + 1, bt.label, fgc, bg, bt.x1, bt.x2)
+      local fg = tx
+      if bt.kind == "alarm" and not dim then fg = colors.yellow end
+      if bt.id == "hold" and S.hold and not dim then face = colors.yellow end
+      label(c, bt, bt.label, fg, colors.black)
     end
+    if flashing then face = colors.yellow end
+    cap(c, bt, face, bt.kind == "fire" and colors.red or colors.black)
   end
   return c
 end
@@ -236,11 +239,11 @@ local function redraw() os.queueEvent("panel_redraw") end
 function M.handle(msg)
   if type(msg) ~= "table" or msg.car ~= M.config.car or msg.type ~= "panel" then return end
   S.lit = type(msg.lit) == "table" and msg.lit or {}
-  S.locked = type(msg.locked) == "table" and msg.locked or {}
   S.window = msg.keycard_window and true or false
   S.mode = msg.mode or "normal"
   S.firefighter = msg.firefighter == true
   S.fireKey = msg.fireKeyAllowed == true
+  S.hold = msg.hold == true
   S.lastPanel = os.clock()
   S.silent = false
   redraw()
@@ -259,9 +262,15 @@ function M.touch(x, y)
       elseif bt.kind == "door" then msg = { type = "door", car = car, cmd = bt.id }
       else msg = { type = "alarm_button", car = car } end
       M.send(msg)
-      S.flash = { id = bt.id, untilT = os.clock() + M.config.flash }
+      if bt.kind == "floor" then
+        -- lit now; stays lit only if the hub takes the call
+        S.pressed[bt.id] = os.clock() + M.config.press
+        os.startTimer(M.config.press + 0.05)
+      else
+        S.flash = { id = bt.id, untilT = os.clock() + M.config.flash }
+        os.startTimer(M.config.flash + 0.05) -- wakes the display loop to clear the flash
+      end
       redraw()
-      os.startTimer(M.config.flash + 0.05) -- wakes the display loop to clear the flash
       return msg
     end
   end
@@ -314,8 +323,10 @@ local function displayLoop()
   M.draw()
   while true do
     local ev = os.pullEvent()
-    if ev == "timer" and S.flash then
-      if os.clock() >= S.flash.untilT then S.flash = nil end
+    if ev == "timer" and (S.flash or next(S.pressed)) then
+      local now = os.clock()
+      if S.flash and now >= S.flash.untilT then S.flash = nil end
+      for f, t in pairs(S.pressed) do if now >= t then S.pressed[f] = nil end end
       M.draw()
     elseif ev == "panel_redraw" or ev == "monitor_resize" then
       M.draw()

@@ -10,14 +10,14 @@ Cars are named "A" (Moon-Moon's original position) and "B" (the mirror, on the l
 ## Panel computer -> hub (the cab's touchscreen button panel; design change 2026-11-20)
 Each car has a small panel computer behind a tall touch monitor on the cab's side wall, in place of the old blank circuit boards. The keycard reader is right next to it, read as a redstone input.
 - `{type="call", car, floor}`: a floor button was pressed. The hub decides whether it is accepted (keycard window, lockdown, fire, inspection) and answers with `panel`.
-- `{type="door", car, cmd}`: "open" or "close" pressed.
+- `{type="door", car, cmd}`: "open", "close" or "hold" pressed. Hold opens the doors and keeps them open for `doorHold` seconds (60), even through floor presses; close ends it. It doesn't count toward the door-open alarm.
 - `{type="alarm_button", car}`: the alarm button was pressed.
 - `{type="keycard", car}`: a valid card was swiped (rising edge of the reader's redstone). The hub then allows L1/L2 for 10 seconds, unless lockdown is on.
 - `{type="firefighter", car, on}`: the Phase II toggle. The hub takes "on" only during fire service with the car held at G, and only within the keycard window (a swipe in the last 10 s). "off" is always taken.
 - `{type="hello", car, role="panel"}` at boot.
 
 ## Hub -> panel computer
-- `{type="panel", car, lit={floor=true,...}, keycard_window=bool, locked={floor=true,...}, mode, firefighter=bool, fireKeyAllowed=bool}`: which buttons glow (registered stops), whether L1/L2 are temporarily allowed, which buttons are dead (lockdown, fire, inspection), the mode for the panel's banner, whether Phase II is on, and whether an "on" would be taken right now (car held at G in fire service, keycard swiped). Sent on every change and at least once a second.
+- `{type="panel", car, lit={floor=true,...}, keycard_window=bool, locked={floor=true,...}, mode, firefighter=bool, fireKeyAllowed=bool, hold=bool}`: which buttons glow (registered stops), whether L1/L2 are temporarily allowed, which floors the hub won't take right now (lockdown, fire, inspection), the mode for the panel's banner, whether Phase II is on, whether an "on" would be taken right now (car held at G in fire service, keycard swiped), and whether door hold is on. Sent on every change and at least once a second. The panel lights a pressed floor for a second either way and keeps it lit only once it shows up in `lit`, so a refused floor just goes dark again (no "locked" text).
 
 ## Roof inspection station -> hub
 A touch station on the car roof runs inspection over rednet (the relay inputs still work if a physical switch is wired, but the default config has none).
