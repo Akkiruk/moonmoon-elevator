@@ -23,13 +23,22 @@ Why the old player sounded broken: the cab is on a Sable sub-level, and Sable wr
 own object. cc-audio-expand (which also takes over plain `speaker.playAudio` on this pack) then never finds its sound
 again, so every packet starts as a new sound the moment it reaches the client. The server sends each packet half a
 second early, so the packets overlapped by 0.5 s and the old sound's cleanup wiped the new one's queue: choppy,
-doubled audio. The player now starts with a 0.525 s silent packet and sends exactly 1.35 s (27 ticks) per packet, which
-lines the server's timing up so each packet arrives as the last one ends (more in `cab/music.lua`). 1-bit DFPWM also
+doubled audio. The player now starts with a 0.525 s silent packet and sends whole-tick packets, which lines the server's
+timing up so each packet arrives as the last one ends (more in `cab/music.lua`). Ogg packets are 8-bit so each one
+can be 2.7 s: `playAudioEx` takes at most 131072 bytes, mono and 48 kHz only, so nothing longer is possible. 1-bit DFPWM also
 adds hiss above the music's own treble, hence Ogg. The whole song as one Ogg file would decode in one go and stall
 every computer for about half a second, hence the parts.
 
 Without cc-audio-expand a track folder doesn't open and `{fallback = path}` is used. DFPWM files and URLs still play
 (`play https://.../x.dfpwm`; the server needs http enabled for that host), as do half-rate files (`name.24k.dfpwm`).
+
+### Volume and range
+
+The default music volume is 0.35 (`set mmlift.volume 0.5` and reboot to change it). Minecraft lets a speaker sound
+carry `max(volume, 1) * attenuation_distance` blocks, fading linearly to nothing, and cc-audio-expand leaves the
+distance at the default 16. `resourcepack/` sets it to 4 for cc-audio-expand's speaker stream only (chimes and the
+alarm are note blocks and keep their range). Zip the folder's contents as `resources.zip` in the world folder, or
+put the folder in the instance's `resourcepacks` and turn it on.
 
 ### Making the track
 

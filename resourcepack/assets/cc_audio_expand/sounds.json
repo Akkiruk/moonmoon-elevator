@@ -1,0 +1,8 @@
+{
+  "speaker.pcm_stream": {
+    "replace": true,
+    "sounds": [
+      { "name": "computercraft:empty", "stream": true, "attenuation_distance": 4 }
+    ]
+  }
+}
