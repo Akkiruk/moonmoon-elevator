@@ -181,7 +181,6 @@ function M.render(w, h)
   center(c, 2, sub, subfg, colors.black)
 
   local dim = S.silent
-  local steel = colors.lightGray
   for _, bt in ipairs(M.layout(w, h)) do
     local flashing = S.flash and S.flash.id == bt.id and os.clock() < S.flash.untilT
     local face = dim and colors.gray or colors.white
@@ -207,6 +206,7 @@ function M.render(w, h)
 end
 
 function M.initDisplay()
+  M.win, M.mon, M.monName, M.size = nil, nil, nil, nil
   local mon = peripheral.find("monitor")
   if not mon then return end
   mon.setTextScale(M.config.scale)
@@ -328,7 +328,11 @@ local function displayLoop()
       if S.flash and now >= S.flash.untilT then S.flash = nil end
       for f, t in pairs(S.pressed) do if now >= t then S.pressed[f] = nil end end
       M.draw()
-    elseif ev == "panel_redraw" or ev == "monitor_resize" then
+    elseif ev == "peripheral" or ev == "peripheral_detach" or ev == "monitor_resize" then
+      -- a monitor put back (or turned round) starts at text scale 1: set it up again, or only a corner shows
+      if ev ~= "monitor_resize" or not M.mon or M.mon.getTextScale() ~= M.config.scale then M.initDisplay() end
+      M.draw()
+    elseif ev == "panel_redraw" then
       M.draw()
     end
   end

@@ -403,7 +403,15 @@ local function displayLoop()
     if ev == "timer" and S.flash then
       if os.clock() >= S.flash.untilT then S.flash = nil end
       M.draw()
-    elseif ev == "landing_redraw" or ev == "monitor_resize" then
+    elseif ev == "peripheral" or ev == "peripheral_detach" or ev == "monitor_resize" then
+      -- a monitor put back starts at text scale 1: wrap them again, or only a corner shows
+      local stale = ev ~= "monitor_resize"
+      for _, m in ipairs({ M.ind, M.sta }) do
+        if m and peripheral.isPresent(m.name) and peripheral.call(m.name, "getTextScale") ~= 0.5 then stale = true end
+      end
+      if stale then wrapMonitors() end
+      M.draw()
+    elseif ev == "landing_redraw" then
       M.draw()
     end
   end
