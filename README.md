@@ -19,11 +19,14 @@ All of Sins (171.75 s) is in `cab/tracks/sins/`: 15 Ogg Vorbis parts of 12 s (mo
 cc-audio-expand mod decodes each part in Java (`cc.audio.ogg`) and `speaker.playAudioEx` plays the 16-bit samples, so
 Lua does no work per sample. `play` with no argument plays it.
 
-Why not DFPWM: on this pack cc-audio-expand also takes over plain `speaker.playAudio` and streams the samples to the
-client as PCM, which drops a stream that runs dry and skips audio that arrives late. Decoding DFPWM in Lua on the
-single computer thread (computer_threads=1, shared with the hub and the GPS hosts) didn't keep up reliably, so the old
-file came out choppy, and 1-bit DFPWM adds hiss above the music's own treble. The whole song as one Ogg file would
-decode in one go and stall every computer for about half a second, hence the parts.
+Why the old player sounded broken: the cab is on a Sable sub-level, and Sable wraps every sound played there in its
+own object. cc-audio-expand (which also takes over plain `speaker.playAudio` on this pack) then never finds its sound
+again, so every packet starts as a new sound the moment it reaches the client. The server sends each packet half a
+second early, so the packets overlapped by 0.5 s and the old sound's cleanup wiped the new one's queue: choppy,
+doubled audio. The player now starts with a 0.525 s silent packet and sends exactly 1.35 s (27 ticks) per packet, which
+lines the server's timing up so each packet arrives as the last one ends (more in `cab/music.lua`). 1-bit DFPWM also
+adds hiss above the music's own treble, hence Ogg. The whole song as one Ogg file would decode in one go and stall
+every computer for about half a second, hence the parts.
 
 Without cc-audio-expand a track folder doesn't open and `{fallback = path}` is used. DFPWM files and URLs still play
 (`play https://.../x.dfpwm`; the server needs http enabled for that host), as do half-rate files (`name.24k.dfpwm`).
